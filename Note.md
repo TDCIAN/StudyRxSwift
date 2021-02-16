@@ -205,3 +205,27 @@ Completed
   - 주로 종료 없이 계속 전달되는 이벤트 시퀀스를 처리할 때 활용한다
  
 #### 8/98 Publish Subject
+- PublishSubject는 Subject로 전달되는 이벤트를 Observer에게 전달하는 가장 기본적인 형태의 Subject이다
+- Subject는 Observable인 동시에 Observer이다
+  - 다른 소스로부터 이벤트를 전달받을 수 있고, 다른 옵저버로 이벤트를 전달할 수 있다
+  - 옵저버블에서 옵저버로 넥스트 이벤트를 전달할 때 옵저버로 온넥스트 메소드를 호출하고, 파라미터로 요소를 전달한다
+  - 서브젝트 역시 옵저버이기 때문에 온넥스트를 호출할 수 있다
+- PublishSubject는 구독 이후에 전달되는 새로운 이벤트만 구독자로 전달한다
+- PublishSubject는 이벤트가 전달되면 즉시 구독자에게 전달한다. 그래서 Subject가 최초로 생성되는 시점과 첫 번째 구독이 시작되는 시점 사이에 전달되는 이벤트는 그냥 사라진다.
+  - 이벤트가 사라지는 것이 문제가 된다면 Replay Subject를 사용하거나 Hold Observable을 사용한다
+
+#### 9/98 Behavior Subject
+- Behavior Subject는 Publish Subject와 유사한 방식으로 동작한다
+  - Subject로 전달된 이벤트를 구독자로 전달하는 것은 동일하다
+  - 하지만 Subject를 생성하는 방식에 차이가 있다
+    - Behavior Subject를 생성할 때는 Publish Subject와 다르게 하나의 값을 전달한다
+    - 숫자를 전달하는 이유는 타입 파라미터가 Int로 선언되었기 때문
+    - 또 다른 차이는 Subject를 구독할 때 나타난다
+    - Publish Subject는 내부에 이벤트가 저장되지 않은 상태로 생성된다
+    - 그래서 Subject로 이벤트가 전달되기 전까지 구독자로 이벤트가 전달되지 않는다
+    - Behavior Subject를 생성하면 내부에 Next 이벤트가 생성되고, 생성자로 전달한 값이 저장된다
+    - 새로운 구독자가 추가되면 저장되어 있던 Next 이벤트가 바로 전달된다
+    - 다시 Behavior Subject로 Next 이벤트를 전달하면 Observer로 Next 이벤트가 전달된다
+    - 이 시점에 새로운 Observer가 추가되면 가장 최신 Next 이벤트를 Observer로 전달한다
+    
+#### 10/98 Replay Subject
