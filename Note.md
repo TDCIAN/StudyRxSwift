@@ -204,15 +204,17 @@ Completed
   - Relay는 일반적인 Subject와 달리 Next 이벤트만 받고 나머지 Completed 이벤트와 Error 이벤트는 받지 않는다
   - 주로 종료 없이 계속 전달되는 이벤트 시퀀스를 처리할 때 활용한다
  
+ 
 #### 8/98 Publish Subject
 - PublishSubject는 Subject로 전달되는 이벤트를 Observer에게 전달하는 가장 기본적인 형태의 Subject이다
 - Subject는 Observable인 동시에 Observer이다
-  - 다른 소스로부터 이벤트를 전달받을 수 있고, 다른 옵저버로 이벤트를 전달할 수 있다
-  - 옵저버블에서 옵저버로 넥스트 이벤트를 전달할 때 옵저버로 온넥스트 메소드를 호출하고, 파라미터로 요소를 전달한다
-  - 서브젝트 역시 옵저버이기 때문에 온넥스트를 호출할 수 있다
+  - 다른 Source로부터 이벤트를 전달받을 수 있고, 다른 Observer로 이벤트를 전달할 수 있다
+  - Observable에서 Observer로 Next 이벤트를 전달할 때 Observer로 onNext 메소드를 호출하고, 파라미터로 요소를 전달한다
+  - Subject 역시 Observer이기 때문에 onNext를 호출할 수 있다
 - PublishSubject는 구독 이후에 전달되는 새로운 이벤트만 구독자로 전달한다
 - PublishSubject는 이벤트가 전달되면 즉시 구독자에게 전달한다. 그래서 Subject가 최초로 생성되는 시점과 첫 번째 구독이 시작되는 시점 사이에 전달되는 이벤트는 그냥 사라진다.
   - 이벤트가 사라지는 것이 문제가 된다면 Replay Subject를 사용하거나 Hold Observable을 사용한다
+
 
 #### 9/98 Behavior Subject
 - Behavior Subject는 Publish Subject와 유사한 방식으로 동작한다
@@ -251,7 +253,8 @@ Completed
 - 만약 Async Subject로 전달된 Next 이벤트가 없다면 그냥 Completed 이벤트만 전달하고 종료한다
 - Error 이벤트가 전달된 경우에는 Next 이벤트가 구독자에게 전달되지 않고, Error 이벤트만 전달된다
 
-#### 12/98 Relays
+
+#### 12/98 Relays (0216 여기까지)
 - RxSwift는 Publish Relay와 Behavior Relay를 제공한다
 - Relay는 Subject와 유사한 특징을 가지고 있고, 내부에 Subject를 래핑하고 있다
 - Publish Relay는 Publish Subject를 래핑하고 있고, Behavior Relay는 Behavior Subject를 래핑하고 있다
