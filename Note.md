@@ -356,3 +356,98 @@ completed
 - 배열에 저장된 요소를 하나씩 방출하는 Observable이 필요하다면 from 연산자를 사용한다
 
 
+#### 14/98 range, generate
+- 정수를 지정된 수만큼 방출하는 Observable을 생성하기 위해서 range 연산자와 generate 연산자를 사용한다
+- 첫 번째 파라미터에는 시작할 정수를 입력한다(실수를 입력하면 컴파일 에러가 발생한다)
+- 두 번째 파라미터에는 방출할 정수의 수를 전달한다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+
+Observable.range(start: 1, count: 5)
+  .subsribe { print($0) }
+  .disposed(by: disposeBag)
+==> 출력결과
+next(1)
+next(2)
+next(3)
+next(4)
+next(5)
+completed
+</code>
+</pre>
+- range 연산자는 시작 값에서 1씩 증가하는 squence를 생성한다
+- 증가되는 크기를 바꾸거나 감소하는 sequence를 생성하는 것은 불가능하다
+- 이걸 가능하게 하는 것이 generate 연산자이다
+- generate 연산자는 총 네 개의 파라미터를 받는다(initialState, condition, scheduler, iterate)
+- 첫 번째 파라미터인 initialState는 시작값을 전달한다. 즉, 가장 먼저 방출되는 값이 들어간다
+- 두 번째 파라미터인 condition에 true를 리턴하는 경우에만 요소가 방출된다, false를 리턴하면 completed 이벤트를 전달하고 바로 종료한다
+- 세 번째는 일단 무시
+- 네 번째 파라미터인 iterate에는 값을 바꾸는 코드를 전달한다. 보통 값을 증가시키거나 감소시키는 코드를 전달한다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+
+// iterate로 전달하는 식($0+2)은 값을 2씩 증가시키는 것을 의미
+Observable.generate(initialState: 0, condition: { $0 <= 10 } , iterate: { $0 + 2 })
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+==> 출력결과
+next(0)
+next(2)
+next(4)
+next(6)
+next(8)
+next(10)
+completed
+
+let red = "RED"
+let blue = "BLUE"
+
+// 두 번째 파라미터 안의 { $0.count < 5 }는 문자열의 길이가 5보다 작을 때 true를 리턴함을 의미한다
+// 세 번째 파라미터 안의 { $0.count.isMultiple(of:2) ? $0 + red : $0 + blue }는 현재 문자열 뒤에 다른 색의 문자열을 추가하도록 구현함을 의미
+Observable.generate(initialState: red, condition: { $0.count < 5 }, iterate: { $0.count.isMultiple(of:2) ? $0 + red : $0 + blue })
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+==> 출력결과
+next(RED)
+next(RED,BLUE)
+next(RED,BLUE,RED)
+next(RED,BLUE,RED,BLUE)
+completed
+</code>
+</pre>
+- generate 연산자의 경우 range 연산자와 다르게 파라미터 형식이 정수로 제한되지 않는다
+
+
+#### 15/98 repeatElement
+- 동일한 요소를 반복적으로 방출하는 Observable을 생성할 수 있도록 해주는 연산자가 repeatElement이다
+- repeatElement는 ObservableType 프로토콜의 Type 메소드로 선언되어 있다
+- 첫 번째 파라미터로 요소를 전달하면 이 요소를 반복적으로 방출하는 Observable을 리턴한다
+- 반복적의 의미는 설명에 나와 있는 대로(infinitely) 무한적으로 방출하는 것을 의미한다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let element = "Heart"
+Observable.repeatElement(element)
+  .subscribe { print($0) }
+==> 출력결과
+next(Heart)
+next(Heart)
+next(Heart)
+... 무한반복
+
+Observable.repeatElement(element)
+  .take(4)
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+==> 출력결과
+next("Heart")
+next("Heart")
+next("Heart")
+next("Heart")
+completed
+</code>
+</pre>
+- repeatElement 연산자를 사용할 때는 방출되는 횟수를 제한해주는 것이 아주 중요하다
+- take 연산자를 사용해서 방출 횟수를 지정할 수 있다
