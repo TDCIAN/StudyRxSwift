@@ -272,3 +272,87 @@ Completed
   - Behavior Relay가 저장하고 있는 Next 이벤트에 접근해서 여기에 저장되어 있는 값을 리턴한다 
   - 이 속성은 읽기 전용이고, 이 안에 있는 값을 바꿀 수는 없다
   - 값을 바꾸고 싶다면, accept 메소드를 통해 새로운 넥스트 이벤트를 전달해야 한다
+
+
+
+### Create Operators
+#### 13/98 just, of, from (0217 여기부터)
+- just는 하나의 항목을 방출하는 Observable을 생성한다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let element = "smile"
+
+Observable.just(element)
+  .subscribe { event in print(event) }
+  .disposed(by: disposeBag)
+==> 출력결과
+next(smile)
+completed
+
+Observable.just([1, 2, 3])
+  .subscribe { event in print(event) }
+  .disposed(by: disposeBag)
+==> 출력결과
+next([1, 2, 3])
+completed
+</code>
+</pre>
+- just는 ObservableType 프로토콜에 Type 메소드로 선언되어 있다
+- 파라미터로 하나의 요소를 받아서 Observable을 리턴한다
+- from 연산자와 자주 혼동하게 되는데, just로 생성한 Observable은 파라미터로 전달한 요소를 그대로 방출한다는 사실을 기억하라
+- 만약 두 개 이상의 요소를 방출할 Observable을 만들어야 한다면 just로는 불가능하고, of 연산자를 사용해야 한다
+- of의 경우 가변 파라미터로 설정되어 있어서 여러 개의 값을 동시에 전달할 수 있다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let apple = "Apple"
+let orange = "Orange"
+let kiwi = "Kiwi"
+
+Observable.of(apple, orange, kiwi)
+  .subscribe { element in print(element) }
+  .disposed(by: disposeBag)
+==> 출력결과
+next(Apple)
+next(Orange)
+next(Kiwi)
+completed
+
+Observable.of([1, 2], [3, 4], [5, 6])
+  .subscribe { element in print(element) }
+  .disposed(by: disposeBag)
+==> 출력결과
+next([1, 2])
+next([3, 4])
+next([5, 6])
+completed
+</code>
+</pre>
+- of 역시 ObservableType 프로토콜의 Type 메소드로 선언되어 있다
+- 방출할 요소를 원하는 수만큼 전달할 수 있다
+- 배열에 저장된 요소를 하나씩 방출하고 싶다면 from 연산자를 사용하면 된다
+- from 역시 ObserableType 프로토콜의 Type 메소드로 선언되어 있다
+- 첫 번째 파라미터로 배열을 받고, 리턴형은 배열이 아니라 배열에 포함된 요소이다
+- 배열에 포함된 요소를 하나씩 순서대로 방출한다
+- sequence 형식을 전달할 수도 있다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let fruits = ["Apple", "Kiwi", "Mango"]
+Observable.from(fruits)
+  .subscribe { element in print(element) }
+  .disposed(by: disposeBag)
+==> 출력결과
+next("Apple")
+next("Kiwi")
+next("Mango")
+completed
+</code>
+</pre>
+- 하나의 요소를 방출하는 Observable을 생성할 때는 just 연산자를 사용한다
+- 두 개 이상의 요소를 방출하는 Observable을 생성할 때는 of 연산자를 사용한다
+- just와 of 연산자는 항목을 그대로 방출하기 때문에, 배열을 전달하면 배열이 방출된다
+- 배열에 저장된 요소를 하나씩 방출하는 Observable이 필요하다면 from 연산자를 사용한다
+
+
