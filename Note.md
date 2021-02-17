@@ -228,4 +228,44 @@ Completed
     - 다시 Behavior Subject로 Next 이벤트를 전달하면 Observer로 Next 이벤트가 전달된다
     - 이 시점에 새로운 Observer가 추가되면 가장 최신 Next 이벤트를 Observer로 전달한다
     
+    
 #### 10/98 Replay Subject
+- Behavior Subject는 가장 최근 Next 이벤트 하나를 저장했다가 새로운 구독자로 전달한다
+  - 최신 이벤트를 제외한 나머지 모든 이벤트는 사라진다
+- 두 개 이상의 이벤트를 저장해두고 새로운 구독자로 전달하고 싶다면 Replay Subject를 사용한다
+- Replay Subject는 create 메소드로 생성한다
+  - Subject를 생성할 때 buffer의 크기를 지정하는데(bufferSize), bufferSize를 3으로 하면 세 개의 이벤트를 저장하는 buffer가 생성된다
+  - 이 때 전달되는 것은 가장 마지막에서부터 세 개의 이벤트를 전달한다
+- Replay Subject는 지정된 buffer 크기만큼 최신 이벤트를 저장하고 새로운 구독자에게 전달한다
+- buffer는 메모리에 저장되기 때문에 항상 메모리 사용량에 신경 써야 한다
+- 필요 이상으로 큰 buffer를 쓰는 것은 피해야 한다
+- Replay Subject는 종료 여부에 관계 없이 항상 buffer에 저장돼 있는 이벤트를 새로운 구독자에게 전달한다
+
+
+#### 11/98 Async Subject
+- Async Subject는 이전의 Subject들과 이벤트를 전달하는 시점에 차이가 있다
+- Publish Subject, Behavior Subject, Replay Subject는 Subject로 이벤트가 전달되면 즉시 구독자에게 전달한다
+- 반면 Async Subject는 Subject로 Completed 이벤트가 전달되기 전까지 어떤 이벤트도 구독자로 전달하지 않는다
+- Completed 이벤트가 전달되면 그 시점에 가장 최근에 전달된 넥스트 이벤트 하나를 구독자에게 전달한다
+- Async Subject는 Completed 이벤트가 전달된 시점을 기준으로 가장 최근에 전달된 하나의 Next 이벤트를 구독자에게 전달한다
+- 만약 Async Subject로 전달된 Next 이벤트가 없다면 그냥 Completed 이벤트만 전달하고 종료한다
+- Error 이벤트가 전달된 경우에는 Next 이벤트가 구독자에게 전달되지 않고, Error 이벤트만 전달된다
+
+#### 12/98 Relays
+- RxSwift는 Publish Relay와 Behavior Relay를 제공한다
+- Relay는 Subject와 유사한 특징을 가지고 있고, 내부에 Subject를 래핑하고 있다
+- Publish Relay는 Publish Subject를 래핑하고 있고, Behavior Relay는 Behavior Subject를 래핑하고 있다
+- Relay는 Subject와 마찬가지로 다른 Source로부터 이벤트를 받아서 구독자에게 전달한다
+- 가장 큰 차이는 Next 이벤트만 전달한다는 것이다
+- Completed 이벤트와 Error 이벤트는 전달 받지도 않고, 전달 하지도 않는다
+- 그래서 Subject와 달리 종료되지 않는다
+- 구독자가 Dispose 되기 전까지 계속 이벤트를 처리한다
+- 그래서 주로 UI 이벤트 처리에 활용된다
+- Relay는 RxSwift 프레임워크가 아닌 RxCocoa 프레임워크를 통해 제공된다
+- Subject에서는 onNext를 사용하지만, Relay에서 Next이벤트를 전달할 때는 accept 메소드를 사용한다
+- accept 메소드를 호출하고 값을 전달하면 구독자에게 Next 이벤트가 전달된다
+- Behavior Relay는 Behavior Subject와 마찬가지로 하나의 값을 생성자로 전달한다
+- Behavior Relay는 value라는 속성을 제공한다
+  - Behavior Relay가 저장하고 있는 Next 이벤트에 접근해서 여기에 저장되어 있는 값을 리턴한다 
+  - 이 속성은 읽기 전용이고, 이 안에 있는 값을 바꿀 수는 없다
+  - 값을 바꾸고 싶다면, accept 메소드를 통해 새로운 넥스트 이벤트를 전달해야 한다
