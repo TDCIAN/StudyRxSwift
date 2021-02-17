@@ -529,3 +529,40 @@ Observable<String>.create { (observer) -> Disposable in
 - 둘 중 하나라도 호출하면 Observable이 종료되기 때문에, 그 이후에 onNext를 호출하면 요소가 방출되지 않는다
 - onNext를 호출하려면 onCompleted() 메소드 또는 onError() 전에 호출해야 한다
 
+
+
+#### 18/98 empty, error
+- 두 연산자가 생성한 Observable은 next 이벤트를 전달하지 않는다는 공통점이 있다
+- 둘 다 어떠한 요소도 방출하지 않는다
+- empty 연산자는 completed 이벤트를 전달하는 Observable을 생성한다 
+- 요소를 방출하지 않기 때문에 요소의 형식은 중요하지 않다
+- empty 연산자는 파라미터가 없다
+- observer가 아무런 동작 없이 종료돼야 할 때 사용한다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+
+Observable<Void>.empty()
+    .subscribe { print($0) }
+    .disposed(by: disposeBag)
+==> 출력결과
+completed
+</code>
+</pre>
+
+- error 연산자는 error 이벤트를 전달하고 종료한다
+- error 연산자는 파라미터로 error를 받는다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+enum MyError: Error {
+  case error
+}
+
+Observable<Void>.error(MyError.error)
+    .subscribe { print($0) }
+    .disposed(by: disposeBag)
+==> 출력결과
+error(error)
+</code>
+</pre>
