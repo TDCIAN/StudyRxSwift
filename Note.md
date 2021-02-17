@@ -451,3 +451,81 @@ completed
 </pre>
 - repeatElement 연산자를 사용할 때는 방출되는 횟수를 제한해주는 것이 아주 중요하다
 - take 연산자를 사용해서 방출 횟수를 지정할 수 있다
+
+#### 16/98 deferred
+- deferred의 뜻은 '연기'임
+- deferred 연산자를 활용하면 특정 조건에 맞춰 Observable을 생성할 수 있다
+- deferred 연산자는 Observable을 리턴하는 클로저를 파라미터로 받는다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let animals = ["Dog", "Cat", "Fox"]
+let fruits = ["Apple", "Mango", "Kiwi"]
+var flag = true
+
+let factory: Observable<String> = Observable.deferred {
+  flag.toggle() // flag의 상태를 뒤집는 역할, 기존에 flag가 true였기 때문에 toggle 이후에는 false가 된다
+  // flag에 true가 저장되어 있다면 animals 배열에 있는 문자열을 방출하는 Observable을 리턴
+  if flag {
+    return Observable.from(animals) // from 연산자를 사용하면 배열 내 요소들을 순차적으로 방출할 수 있다
+  } else { // flag에 false가 저장되어 있다면 fruits 배열에 있는 문자열을 방출하는 Observable을 리턴
+    return Observable.from(fruits) 
+  }
+}
+
+factory
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+// 한 번 더 호출해서 flag 값을 다시 true로 변경
+factory
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+==> 출력결과
+next("Apple")
+next("Mango")
+next("Kiwi")
+completed
+next("Dog")
+next("Cat")
+next("Fox")
+completed
+</code>
+</pre>
+
+#### 17/98 create
+- Observable이 동작하는 방식을 직접 구현하고 싶다면 create 연산자를 사용해야 한다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+enum MyError: Error {
+  case error
+}
+
+Observable<String>.create { (observer) -> Disposable in
+  guard let url = URL(string: "https://www.apple.com" 
+    else { 
+    // 여기서의 옵저버는 클로저로 전달된 파라미터를 의미함
+    observer.onError(MyError.error)
+    return Disposables.create() // Disposable이 아니라 Disposables로 써야 한다
+  }
+  
+  guard let html = try? String(contentsOf: url, encoding: .utf8) else {
+    observer.onError(MyError.error)
+    return Disposables.create()
+  }
+  // 문자열이 정상적으로 저장되었다면 Observer로 전달한다 -> 문자열을 방출한다
+  observer.onNext(html) // 요소를 방출할 때는 onNext를 사용한다
+  observer.onCompleted() // observer로 completed 이벤트가 전달된다
+  
+  return Disposables.create() // 마지막으로 Disposable을 생성해서 리턴해주면 모든 리소스가 정리되고 Observable이 정상적으로 종료된다
+}
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+==> 출력결과
+(html 내용이 출력됨)
+</code>
+</pre>
+- Observable을 종료하기 위해서는 onError 또는 onCompleted 메소드를 반드시 호출해야 한다
+- 둘 중 하나라도 호출하면 Observable이 종료되기 때문에, 그 이후에 onNext를 호출하면 요소가 방출되지 않는다
+- onNext를 호출하려면 onCompleted() 메소드 또는 onError() 전에 호출해야 한다
+
