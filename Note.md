@@ -816,3 +816,89 @@ next(11)
 completed
 </code>
 </pre>
+
+
+#### 24/98 single Operator
+- single 연산자는 원본 Observable에서 첫 번째 요소만 방출하거나, 조건과 일치하는 첫 번째 요소만 방출한다
+- 두 개 이상의 요소가 방출되는 경우 error가 발생한다
+- single 연산자는 단 하나의 요소만 방출해야 정상적으로 종료된다
+- 원본 Observable이 아무 요소도 방출하지 않거나, 두 개 이상의 요소를 방출하는 경우 error가 발생한다
+- single 연산자는 아무 파라미터가 없는 연산자와, predicate를 파라미터로 받은 연산자 두 경우가 있다
+- single 연산자는 새로운 요소를 방출하면 구독자에게 바로 전달된다
+- 다른 요소가 방출될 수도 있으므로 single 연산자가 리턴하는 Observable은 원본 Observable에서 completed 이벤트가 전달할 때까지 대기한다
+- completed 이벤트가 전달되는 시점에 하나의 요소만 방출된 시점이라면 구독자에게 completed 이벤트가 전달되고, 그 사이에 다른 요소가 방출되었다면 구독자에게는 error 이벤트가 전달된다. 이와 같은 방식을 통해 하나의 요소만 방출되는 것을 보장받을 수 있다.
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+Observable.just(1)
+  .single()
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+ 
+Observable.form(numbers)
+  .single()
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+
+Observable.from(numbers)
+  .single { $0 == 3 }
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+  
+let subject = PublishSubject<Int>()
+  
+subject.single()
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+
+subject.onNext(100)
+
+==> 출력결과
+next(1)
+completed
+next(1)
+error(Sequence contains more than one element.)
+next(3)
+completed
+completed
+next(100)
+</code>
+</pre>
+
+
+#### 25/98 distinctUntilChange Operator
+- distinctUntilChange 연산자는 동일한 항목이 연속적으로 방출되지 않도록 필터링 해준다
+- 이 연산자는 파라미터가 없다.
+- 원본 Observable에서 전달되는 두 개의 요소를 순서대로 비교한 다음에 이전 요소와 동일하면 방출하지 않는다
+- 두 개의 요소를 비교할 때는 비교 연산자를 활용해 비교한다
+
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let numbers = [1, 1, 3, 2, 2, 3, 1, 5, 5, 7, 7, 7]
+
+Observable.from(numbers)
+  .distinctUntilChanged()
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+==> 출력결과
+next(1)
+next(3)
+next(2)
+next(3)
+next(1)
+next(5)
+next(7)
+completed
+</code>
+</pre>
+
+2020/02/19 여기까지
+
+#### 26/98 debounce, throttle Operator (2020/02/20 여기부터)
+- 두 연산자는 짧은 시간동안 반복적으로 방출되는 이벤트를 제어한다는 공통점이 있다
+- 연산자로 전달하는 파라미터도 동일하다
+- 하지만 연산의 결과는 완전히 다르다
+- 
