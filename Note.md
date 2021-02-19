@@ -531,7 +531,7 @@ Observable<String>.create { (observer) -> Disposable in
 
 
 
-#### 18/98 empty, error
+#### 18/98 empty, error(2020/02/18 여기까지)
 - 두 연산자가 생성한 Observable은 next 이벤트를 전달하지 않는다는 공통점이 있다
 - 둘 다 어떠한 요소도 방출하지 않는다
 - empty 연산자는 completed 이벤트를 전달하는 Observable을 생성한다 
@@ -564,5 +564,255 @@ Observable<Void>.error(MyError.error)
     .disposed(by: disposeBag)
 ==> 출력결과
 error(error)
+</code>
+</pre>
+
+### Filtering Operators
+#### 19/98 ignoreElementsOperator (2020/02/19 여기부터)
+- ignoreElements는 Observable이 방출하는 next 이벤트를 필터링하고 completed 이벤트와 error 이벤트만 구독자로 전달한다
+- ignoreElements는 파라미터를 받지 않는다
+- 리턴형은 Completable인데, Completable은 트레이츠라고 부르는 특별한 Observable이다
+- Completable은 completed 또는 error 이벤트만 전달하고 next 이벤트는 무시한다
+- 주로 작업의 성공과 실패에만 관심이 있을 때 사용한다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let fruits = ["Apple", "Pear", "Grape"]
+
+Observable.from(fruits)
+  .ignoreElements()
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+==> 출력결과
+completed
+</code>
+</pre>
+
+#### 20/98 elementAt Operator
+- elementAt은 특정 인덱스에 위치한 요소를 제한적으로 방출한다
+- elementAt은 정수 인덱스를 파라미터로 받아서 Observable을 리턴한다
+- 해당 인덱스의 요소를 방출하고 completed 이벤트를 전달받는다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let fruits = ["Apple", "Pear", "Grape"]
+
+Observable.from(fruits)
+  .elementAt(1)
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+==> 출력결과
+next(Pear)
+completed
+</code>
+</pre>
+
+
+#### 21/98 filter Operator
+- filter 연산자는 클로저를 파라미터로 받는다
+- 클로저는 predicate로 사용된다 (predicate는 '서술하다', '단언하다', '주장하다', '속성'의 뜻을 가짐)
+- true를 리턴하는 요소가 연산자가 리턴하는 Observable에 포함된다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+Observable.from(numbers)
+  .filter { $0.isMultiple(of: 2) }
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+==> 출력결과
+next(2)
+next(4)
+next(6)
+next(8)
+next(10)
+completed
+</code>
+</pre>
+
+
+#### 22/98 skip, skipWhile, skipUntil Operator
+- skip 연산자를 통해 특정 요소를 무시할 수 있다
+- skip 연산자는 정수를 파라미터로 받는다
+- Observable이 방출하는 요소 중에서 지정된 수만큼 무시한 다음에 이후에 방출되는 요소만 구독자로 전달한다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+Observable.from(numbers)
+  .skip(3) // 인덱스가 아니라 count로 사용되는 것이다 -> 인덱스였으면 5부터 출력됐을 것이다
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+==> 출력결과
+next(4)
+next(5)
+next(6)
+next(7)
+next(8)
+next(9)
+next(10)
+completed
+</code>
+</pre>
+
+- skipWhile은 클로저를 파라미터로 받는다 
+- 이 클로저는 filter 연산자와 마찬가지로 predicate로 사용되고, 클로저에서 true를 리턴하는 동안 방출되는 요소를 무시한다
+- 클로저에서 false를 리턴하면 그때부터 요소를 방출하고, 이후에는 조건에 관계 없이 모든 요소를 방출한다
+- 연산자는 방출되는 요소를 포함한 Observable을 리턴한다
+
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+Observable.from(numbers)
+  .skipWhile { !$0.isMultiple(of: 2) } // skipWhile 연산자에 2가 전달되면 false가 리턴되고 이때부터 이어지는 모든 요소가 방출된다(구독자로 전달된다)
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+==> 출력결과
+next(2)
+next(3)
+next(4)
+next(5)
+next(6)
+next(7)
+next(8)
+next(9)
+next(10)
+completed
+</code>
+</pre>
+
+- skipUntil 연산자는 Observable 타입을 파라미터로 받는다
+- 다른 Observable을 파라미터로 받고, 이 Observable이 next 이벤트를 전달하기 전까지, 원본 Observable이 전달하는 이벤트를 무시한다
+- 이런 특징 때문에 파라미터로 전달되는 Observable을 trigger라고 부르기도 한다
+
+<pre>
+<code>
+let disposeBag = DisposeBag()
+
+let subject = PublishSubject<Int>()
+let trigger = PublishSubject<Int>()
+
+subject.skipUntil(trigger)
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+  
+subject.onNext(1)
+// 아직 trigger가 요소를 방출한적이 없기 때문에 subject가 방출한 요소는 구독자로 전달되지 않는다
+
+trigger.onNext(0)
+// 이번에는 trigger에서 요소를 방출하고 있다. 그런데 subject가 이전에 방출했던 요소는 여전히 구독자로 전달되지 않는다
+// skipUntil은 trigger가 요소를 방출한 이후부터 원본 Observable에서 방출되는 요소들을 구독자로 전달한다
+
+subject.onNext(2)
+
+==> 출력결과
+next(2)
+completed
+</code>
+</pre>
+
+
+
+#### 23/98 take, takeWhile, takeUntil, takeLast Operator
+- take 연산자를 통해 요소의 방출 조건을 다양하게 구성할 수 있다
+- take 연산자는 네 가지 형태가 있다(take, takeWhile, takeUntil, takeLast)
+- take 연산자는 정수를 파라미터로 받아서 해당 숫자만큼만 요소를 방출한다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+Observable.from(numbers)
+  .take(5)
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+  
+==> 출력결과
+next(1)
+next(2)
+next(3)
+next(4)
+next(5)
+completed
+</code>
+</pre>
+
+- takeWhile 연산자는 클로저를 파라미터로 받아서 predicate로 사용한다
+- true를 리턴하면 구독자에게 전달된다 -> 요소를 방출한다
+- 연산자가 리턴하는 Observable에는 최종적으로 조건을 만족하는 요소들만 포함된다
+
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+Observable.from(numbers)
+  .takeWhile { !$0.isMultiple(of: 2) }
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+  
+==> 출력결과
+next(1) // 이후에도 홀수가 방출되지만 구독자로는 전달되지 않는다 (takeWhile 연산자는 클로저가 false를 리턴하면 더 이상 요소를 방출하지 않는다)
+completed
+</code>
+</pre>
+
+- takeUntil 연산자
+- takeUntil 연산자는 ObservableType을 파라미터로 받는다
+- Observable을 파라미터로 받는다는 의미이다
+- 파라미터로 전달한 Observable에서 next 이벤트를 전달하기 전까지 원본 Observable에서 next 이벤트를 전달한다
+- trigger 상수에 저장된 Observable을 파라미터로 전달하는 예시
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+let subject = PublishSubject<Int>()
+let trigger = PublishSubject<Int>()
+
+subject.takeUntil(trigger)
+  .subscribe { print($0) }
+  .dispose(by: disposeBag)
+
+subject.onNext(1)
+subject.onNext(2)
+
+trigger.onNext(0) // 이때부터 요소가 방출되지 않는다
+
+subject.onNext(3)
+==> 출력결과
+next(1)
+next(2)
+completed
+</code>
+</pre>
+
+- takeLast 연산자는 정수를 파라미터로 받아서 Observable을 리턴한다
+- 리턴되는 Observable에는 원본 Observable이 방출한 요소 중에서 마지막으로 방출한 n개의 요소가 포함된다
+- takeLast 연산자의 가장 중요한 점은 구독자로 전달되는 시점이 딜레이 된다는 점이다
+
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+let subject = PublishSubject<Int>()
+subject.takeLast(2)
+    .subscribe { print($0) }
+    .dispose(by: disposeBag)
+
+numbers.forEach { subject.onNext($0) }
+
+subject.onNext(11) // 끝에 두 요소가 10, 11로 바뀐다
+subject.onCompleted()
+
+==> 출력결과
+next(10)
+next(11)
+completed
 </code>
 </pre>
