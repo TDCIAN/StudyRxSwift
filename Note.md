@@ -997,3 +997,31 @@ completed
 - 반면 debounce 연산자는 next 이벤트가 전달된 다음 지정된 시간이 경과하기까지 다른 이벤트가 전달되지 않는다면 마지막으로 방출된 이벤트를 구독자에게 전달한다
 - 짧은 시간 동안 반복되는 tap 이벤트나 delegate 이벤트를 처리할 때는 throttle을 사용하고, debounce는 주로 검색 기능을 구현할 때 사용한다
 - debounce를 활용해 사용자가 짧은 시간동안 연속적으로 타이핑을 할 때는 검색작업을 실행하지 않다가, 타이핑을 멈추면 검색을 실행한다
+- toArray 연산자는 별도의 파라미터를 받지는 않는다
+- 하나의 요소를 방출하거나 error 이벤트를 방출하는 ObservableType의 메소드이다
+- 하나의 요소를 방출하고 바로 종료한다
+
+### Tranforming Operators
+#### 27/98 toArray Operator
+- toArray 연산자는 Observable이 방출하는 모든 요소를 배열에 담은 다음, 이 배열을 방출하는 Observable을 생성한다
+
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+let subject = PublishSubject<Int>()
+  
+subject
+  .toArray()
+  .subscribe { print($0) }
+  .disposed(by: dispseBag)
+  
+subject.onNext(1)
+subject.onNext(2)
+subject.onCompleted()
+==> 출력결과
+success([1,2])
+</code>
+</pre>
+
