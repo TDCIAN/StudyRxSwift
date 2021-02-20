@@ -901,4 +901,99 @@ completed
 - 두 연산자는 짧은 시간동안 반복적으로 방출되는 이벤트를 제어한다는 공통점이 있다
 - 연산자로 전달하는 파라미터도 동일하다
 - 하지만 연산의 결과는 완전히 다르다
-- 
+- debounce 연산자는 두 개의 파라미터를 받는다
+  - 첫 번째 파라미터(dueTime: RxTimeInterval)에는 시간을 전달한다
+  - 이 시간은 연산자가 next 이벤트를 방출할지 결정하는 조건으로 사용된다
+  - Observer가 next 이벤트를 방출한 다음 지정된 시간 동안 다른 next 이벤트를 방출하지 않는다면 해당 시점에 가장 마지막으로 방출한 next 이벤트를 구독자에게 전달한다
+  - 반대로 지정된 시간 이내에 또 다른 next 이벤트를 방출했다면 타이머를 초기화한다 (이해하는 것이 중요한 부분)
+  - 타이머를 초기화한 다음에 다시 지정된 시간 동안 대기한다
+  - 이 시간 이내에 다른 이벤트가 방출되지 않는다면 마지막 이벤트를 방출하고 이벤트가 방출된다면 타이머를 다시 초기화한다
+  - 두 번째 파라미터(scheduler: SchedulerType)에는 타이머를 실행할 스케줄러를 전달한다
+
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let buttonTap = Observable<String>.create { observer in
+  DispatchQueue.global().async {
+    for i in 1...10 {
+      observer.onNext("Tap \(i)")
+      Thread.sleep(forTimeInterval: 0.3) // 0.3초 주기로 10번 방출
+    }
+    Thread.sleep(forTimeInterval: 1) // 1초 동안 쓰레드 중지
+    
+    for i in 11...20 {
+      observer.onNext("Tap \(i)")
+      Thread.sleep(forTimeInterval: 0.5) // 0.5초 주기로 10번 방출
+    }
+    
+    observer.onCompleted()
+  }
+  
+  return Disposables.create {
+  
+  }
+}
+
+buttonTap
+  .debounce(.milliseconds(1000), scheduler: MainScheduler.instance) // 1초의 debounce
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)  
+==> 출력결과
+next(Tap 10)
+next(Tap 20)
+completed
+// debounce 연산자는 지정된 시간 동안 새로운 이벤트가 방출되지 않으면 가장 마지막에 방출된 이벤트를 구독자에게 전달한다 -> 타이머가 만료되기 전에 새로운 이벤트가 방출되었기 때문에 타이머를 초기화 함
+</code>
+</pre>
+
+
+- throttle 연산자 (스로틀이라는 용어는 엔진의 힘이나 속도가 규제되는 구조라는 의미)
+- throttle 연산자는 세 개의 파라미터(dueTime: RxTimeInterval, latest: Bool, scheduler: SchedulerType)를 받는다
+- 기본값을 가진 두 번째 파라미터는 생략하는 경우가 많기 때문에 debounce와 파라미터가 동일하다고 생각해도 무방하다
+- 첫 번째 파라미터에는 반복 주기를 전달하고, 세 번째 파라미터에는 스케줄러를 전달한다
+- throttle은 지정된 주기 동안 하나의 이벤트만 구독자에게 전달한다
+- 보통 두 번째 파라미터는 기본값을 사용하는데, 주기를 엄격하게 지킨다
+- 두 번째 파라미터에 false를 부여하면, 반복 주기가 경과한 다음 가장 먼저 방출되는 이벤트를 구독자에게 전달한다
+
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let buttonTap = Observable<String>.create { observer in
+  DispatchQueue.global().async {
+    for i in 1...10 {
+      observer.onNext("Tap \(i)")
+      Thread.sleep(forTimeInterval: 0.3)
+    }
+    Thread.sleep(forTimeInterval: 1)
+    for i in 11...20 {
+      observer.onNext("Tap \(i)")
+      Thread.sleep(forTimeInterval: 0.5)
+    }
+    observer.onCompleted()
+  }
+  return Disposables.create()
+}
+
+buttonTap
+  .throttle(.milliseconds(1000), scheduler: MainScheduler.instance)
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+==> 출력 결과
+next(Tap 1)
+next(Tap 4)
+next(Tap 7)
+next(Tap 10)
+next(Tap 11)
+next(Tap 12)
+next(Tap 14)
+next(Tap 16)
+next(Tap 18)
+next(Tap 20)
+completed
+</code>
+</pre>
+
+- throttle 연산자는 next 이벤트를 지정된 주기마다 하나씩 구독자에게 전달한다
+- 반면 debounce 연산자는 next 이벤트가 전달된 다음 지정된 시간이 경과하기까지 다른 이벤트가 전달되지 않는다면 마지막으로 방출된 이벤트를 구독자에게 전달한다
+- 짧은 시간 동안 반복되는 tap 이벤트나 delegate 이벤트를 처리할 때는 throttle을 사용하고, debounce는 주로 검색 기능을 구현할 때 사용한다
+- debounce를 활용해 사용자가 짧은 시간동안 연속적으로 타이핑을 할 때는 검색작업을 실행하지 않다가, 타이핑을 멈추면 검색을 실행한다
