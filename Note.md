@@ -1054,3 +1054,47 @@ next(7)
 completed
 </code>
 </pre>
+
+
+#### 29/98 flatMap Operator
+- flatMap 연산자는 모든 Observable이 방출하는 항목을 모아서 최종적으로 하나의 Observable을 리턴한다
+- 개별 항목이 개별 Observable로 변환되었다가 다시 하나의 Observable로 합쳐지기 때문에 처음에는 이해하기 어렵다
+- 실제 프로젝트에서 활용해보면 금방 이해 된다
+- flatMap 연산자는 클로저를 파라미터로 받는데, BehaviorSubject를 원하는대로 변환한 다음 새로운 Observable을 리턴해야 한다
+- flatMap이 내부적으로 여러 개의 Observable을 생성하지만, 최종적으로 모든 Observable이 하나의 Observable로 합쳐지고, 방출되는 항목들이 순서대로 구독자에게 전달된다
+- flatMap 연산자는 원본 Observable이 방출하는 항목을 새로운 Observable로 변환한다. 새로운 Observable은 항목이 업데이트 될 때마다 새로운 항목을 방출한다
+- 이렇게 생성된 모든 Observable은 최종적으로 하나의 Observable로 합쳐지고, 모든 항목들이 이 Observable을 통해서 구독자로 전달 된다
+- 단순히 처음에 방출된 항목만 구독자로 전달되는 것이 아니라 업데이트된 최신 항목도 구독자로 전달된다
+- 이 연산자는 네트워크 요청을 구현할 때 자주 활용한다
+<pre>
+<code>
+let disposeBag = DisposeBag()
+
+let a = BehaviorSubject(value: 1)
+let b = BehaviorSubject(value: 2)
+
+let subject = PublishSubject<BehaviorSubject<Int>>()
+  
+subject
+  .flatMap { $0.asObservable() } // subject를 observable로 변경시킨다
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+  
+subject.onNext(a)
+subject.onNext(b)
+
+a.onNext(11)
+b.onNext(22)
+
+==> 출력결과
+next(1)
+next(2)
+next(11)
+next(22)
+
+</code>
+</pre>
+
+
+#### 30/98 flatMapFirst, flatMapLatest Operator (2020/02/22 여기부터)
+-
