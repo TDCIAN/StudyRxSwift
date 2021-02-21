@@ -1025,5 +1025,32 @@ success([1,2])
 </code>
 </pre>
 
+
 #### 28/98 map Operator (2020/02/21 여기부터)
-- 
+- map 연산자는 Observable 배출하는 항목을 대상으로 함수를 실행하고 결과를 새로운 Observable로 배출한다
+- map 연산자를 사용하다보면 파라미터와 동일한 형식을 리턴해야 한다고 생각하는 경우가 많지만 그런 제약은 없다
+- map 연산자는 Observable이 방출하는 요소들을 대상으로 클로저를 실행하고 그 결과를 구독자에게 전달한다
+- 클로저로 전달되는 파라미터의 형식은 소스 Observable이 방출하는 요소와 동일하다
+- 하지만 클로저가 리턴하는 값의 방식은 고정되어 있지 않으며, 원하는 형식으로 리턴할 수 있다.
+ 
+<pre>
+<code>
+let disposeBag = DisposeBag()
+let skills = ["Siwft", "SwiftUI", "RxSwift"]
+
+Observable.from(skills)
+//  .map { "Hello, \($0)"}
+  .map { $0.count }
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+  
+==> 출력결과
+// next(Hello, Swift)
+// next(Hello, SwiftUI)
+// next(Hello, RxSwift)
+next(5)
+next(7)
+next(7)
+completed
+</code>
+</pre>
