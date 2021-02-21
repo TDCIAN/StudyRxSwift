@@ -1097,4 +1097,72 @@ next(22)
 
 
 #### 30/98 flatMapFirst, flatMapLatest Operator (2020/02/22 여기부터)
--
+- flatMap 연산자에서 파생된 연산자들이다
+- flatMap 연산자에 대한 이해가 우선돼야 한다
+- flatMapFirst의 연산자, 리턴형은 flatMap과 동일하다
+- 하지만 연산자가 리턴하는 옵저버블에는 처음에 변환된 옵저버블이 방출하는 항목만 포함된다
+
+<pre>
+<code>
+let disposeBag = DisposeBag()
+
+let a = BehaviorSubject(value: 1)
+let b = BehaviorSubject(value: 2)
+
+let subject = PublishSubject<BehaviorSubject<Int>>()
+  
+subject
+  .flatMapFirst { $0.asObservable() }
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+  
+subject.onNext(a)
+subject.onNext(b)
+
+a.onNext(11)
+b.onNext(22)
+b.onNext(222)
+a.onNext(111)
+
+==> 출력결과
+next(1) 
+next(11)
+next(111) // a에 대한 내용만 출력된다
+
+</code>
+</pre>
+
+- flatMapLatest는 원본 오버버블이 방출하는 항목을 옵저버블로 변환하는 것은 동일하다
+- 모든 옵저버블이 방출하는 항목을 하나로 병합하지 않는다. 대신 가장 최근의 항목을 방출한 옵저버블을 제외한 나머지는 모두 무시한다
+
+<pre>
+<code>
+let disposeBag = DisposeBag()
+
+let a = BehaviorSubject(value: 1)
+let b = BehaviorSubject(value: 2)
+
+let subject = PublishSubject<BehaviorSubject<Int>>()
+  
+subject
+  .flatMapLatest { $0.asObservable() }
+  .subscribe { print($0) }
+  .disposed(by: disposeBag)
+  
+subject.onNext(a)
+a.onNext(11)
+subject.onNext(b)
+b.onNext(22)
+a.onNext(11)
+
+==> 출력결과
+next(1) 
+next(11)
+next(2)
+next(22) 
+// a.onNext(11)은 구독자로 전달되지 않아 출력되지 않는다
+
+</code>
+</pre>
+
+- flatMapLatest는 원본 옵저버블이 방출하는 요소를 새로운 옵저버블로 변환하고 가장 최근에 변환된 옵저버블이 방출하는 요소만 구독자에게 전달한다
