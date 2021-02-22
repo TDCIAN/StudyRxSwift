@@ -1687,10 +1687,105 @@ error(error) // error는 trigger Observable이 Next 이벤트를 방출하지 �
 </pre>
 
 #### 42/98 switchLatest Operator
-- 가장 최근에 방출된 옵저버블을 구독하고, 이 옵저버블이 전달하는 이벤트를 구독자에게 전달하는 switchLatest 연산자
-- 가장 최근 옵저버블이 방출하는 이벤트를 구독자에게 전달한다
-- 어떤 옵저버블인지 가장 최근 옵저버블인지 이해하는 것이 핵심이다
+- 가장 최근에 방출된 Observable을 구독하고, 이 Observable이 전달하는 이벤트를 구독자에게 전달하는 switchLatest 연산자
+- 가장 최근 Observable이 방출하는 이벤트를 구독자에게 전달한다
+- 어떤 Observable이 가장 최근 Observable인지 이해하는 것이 핵심이다
+- 이 연산자는 파라미터가 없다
+- 주로 Observable을 방출하는 Observable에서 사용된다
+- 소스 Observable이 가장 최근에 방출한 Observable을 구독하고 여기에서 전달하는 Next 이벤트를 방출하는 새로운 Observable을 리턴한다
+
+<pre>
+<code>
+let bag = DisposeBag()
+
+enum MyError: Error {
+  case error
+}
+
+let a = PublishSubject<String>()
+let b = PublishSubject<String>()
+  
+let source = PublishSubject<Observable<String>>()
+  
+source
+  .switchLatest()
+  .subscribe { print($0) }
+  .disposed(by: bag)
+  
+a.onNext("1")
+b.onNext("b")
+
+source.onNext(a) // 이게 a를 최신 Observable로 만들어준다
+
+a.onNext("2")
+b.onNext("b")
+
+source.onNext(b) // 이제 b가 최신 Observable이 되었다
+
+a.onNext("3")
+b.onNext("c")
+
+// a.onCompleted()
+// b.onCompleted()
+
+// source.onCompleted() // 이 때야 비로소 completed 이벤트가 전달된다
+
+a.onError(MyError.error) // 이러면 구독자로 전달되지 않는다
+b.onError(MyError.error) // 최신 Observable인 b는 error 이벤트를 받으면 즉시 구독자에게 전달 가능하다
+
+--> 출력결과
+next(2)
+next(c)
+// completed
+error(error)
+</code>
+</pre>
+
 
 #### 43/98 reduce Operator
-- 시드 값과 옵저버블이 방출하는 요소를 대상으로 클로저를 실행하고 최종 결과를 옵저버블로 방출하는 reduce 연산자
+- seed 값과 Observable이 방출하는 요소를 대상으로 클로저를 실행하고 최종 결과를 Observable로 방출하는 reduce 연산자
+- scan 연산자와 비교하면 쉽게 이해할 수 있다
+- reduce 연산자는 seed value와 accumulator 클로저를 파라미터로 받는다
+- seed value와 소스 Observable이 방출하는 요소를 대상으로 클로저를 실행하고, result Observable을 통해 결과를 방출한다 (scan 연산자와 동일)
+- accumulator 클로저의 실행 결과가 클로저로 다시 전달되는 것도 scan과 동일
+- 하지만 reduce 연산자는 result Observable을 통해 최종 결과 하나만 방출한다. scan은 중간 과정까지 모두 방출한다
+- 세 번째 파라미터 mapResult는 최종 결과를 다른 형식으로 바꾸고 싶을 때 사용한다
 
+<pre>
+<code>
+let bag = DisposeBag()
+
+enum MyError: Error {
+  case error
+}
+
+let o = Observable.range(start: 1, count: 5)
+
+print("== scan")
+
+o.scan(0, accumulator: +)
+  .subscribe { print($0) }
+  .disposed(by: bag)
+  
+print("== reduce")
+
+o.reduce(0, accumulator: +)
+  .subsribe { print($0) }
+  .disposed(by: bag)
+  
+--> 출력결과
+== scan 
+next(1) // 1
+next(3) // 1 + 2
+next(6) // 3 + 3
+next(10) // 6 + 4
+next(15) // 10 + 5
+completed
+== reduce
+next(15) // 최종결과 하나만 출력된다(scan 연산자와의 가장 큰 차이)
+completed
+
+</code>
+</pre>
+
+// 20/02/23 여기까지
