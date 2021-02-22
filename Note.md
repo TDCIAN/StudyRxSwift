@@ -1358,3 +1358,339 @@ completed
 </pre>
 
 // 2020/02/22 여기까지
+
+// 2020/02/23 여기부터
+
+### Combining Operators
+#### 35/98 startWith Operator
+- Observable squence 앞에 새로운 요소를 추가하는 startWith 연산자
+- Observable이 요소를 방출하기 전에 다른 항목들을 앞 부분에 추가한다
+- 주로 기본값이나 시작값을 지정할 때 활용한다
+- 파라미터는 가변 파라미터이다 -> 파라미터로 전달하는 하나 이상의 값을 Observable sequence 앞 부분에 추가한다. 그 다음 새로운 Observable을 리턴한다
+- last in, first out의 특성이 있다
+<pre>
+<code>
+let bag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5]
+
+Observable.from(numbers)
+  .startWith(0)
+  .startWith(-1, -2)
+  .startWith(-3)
+  .subscribe { print($0) }
+  .disposed(by: bag)
+  
+--> 출력결과
+next(-3)
+next(-1)
+next(-2)
+next(0)
+next(1)
+next(2)
+next(3)
+next(4)
+next(5)
+completed
+</code>
+</pre>
+
+
+
+#### 36/98 concat Operator
+- 두 개의 Observable을 연결하는 concat 연산자
+- concat 연산자는 Type 메소드와 Instance 메소드로 구성돼 있다
+- Type 메소드로 구현된 concat 연산자는 파라미터로 전달된 콜렉션에 있는 모든 Observable을 순서대로 연결한 하나의 Observable을 리턴한다
+- Instance 메소드로 구현된 concat 연산자는 대상 Observable이 completed 이벤트를 전달한 경우에 파라미터로 전달한 Observable을 연결한다
+- 만약 error 이벤트가 전달된다면 Observable은 연결되지 않는다
+- 대상 Observable이 방출하는 요소만 전달되고, error 이벤트가 전달된 다음에 종료된다 -> 이건 Type 메소드로 구현된 concat 연산자도 마찬가지
+- concat 연산자는 두 Observable을 단순하게 연결한다 -> 연결된 모든 Observable이 방출하는 요소들이 방출 순서대로 정렬되지는 않는다
+- 이전 Observable이 모든 요소들을 방출하고 completed 이벤트를 전달해야 이어진 Observable이 방출을 시작한다
+
+
+<pre>
+<code>
+let bag = DisposeBag()
+let fruits = Observable.from(["Apple", "Kiwi", "Peach"])
+let animals = Observable.from(["Dog", "Mouse", "Monkey"])
+Observable.concat([fruits, animals])
+  .subscribe { print($0) }
+  .disposed(by: bag)
+  
+animals.concat(animals)
+  .subscribe { print($0) }
+  .disposed(by: bag)
+--> 출력결과
+// next("Apple")
+// next("Kiwi")
+// next("Peach")
+// next("Dog")
+// next("Mouse")
+// next("Monkey")
+// completed // completed는 연결된 옵저버블이 모든 요소를 방출한 후에 전달된다
+next("Dog")
+next("Mouse")
+next("Monkey")
+next("Apple")
+next("Kiwi")
+next("Peach")
+completed
+</code>
+</pre>
+
+
+#### 37/98 merge Operator
+- 여러 Observable이 방출하는 이벤트를 하나의 Observable에서 방출하도록 병합하는 merge 연산자
+- concat 연산자와 혼동하기 쉽지만 동작 방식이 다르다
+- concat은 하나의 Observable이 모든 요소를 방출하고 completed 이벤트를 전달하면 이어지는 Observable을 연결
+- merge는 두 개 이상의 Observable을 병합하고 모든 Observable에서 방출하는 요소들을 순서대로 방출하는 Observable을 리턴한다
+- merge는 두 개 이상의 Observable이 방출하는 요소들을 병합한 하나의 Observable을 리턴한다
+- 단순히 뒤에 연결하는 것이 아니라 하나의 Observable로 합쳐준다
+
+<pre>
+<code>
+let bag = DisposeBag()
+
+enum MyError: Error {
+  case error
+}
+
+let oddNumbers = BehaviorSubject(value: 1)
+let evenNumbers = BehaviorSubject(value: 2)
+let negativeNumbers = BehaviorSubject(value: -1)
+
+let source = Observable.of(oddNumbers, evenNumbers, negativeNumbers)
+
+source
+  .merge(maxConcureent: 2) // 이렇게 하면 병합 가능한 Observable의 수가 2로 제한된다
+  .subscribe { print($0) }
+  .disposed(by: bag)
+
+oddNumbers.onNext(3)
+evenNumbers.onNext(4)
+
+evenNumbers.onNext(6)
+oddNumbers.onNext(5)
+
+// oddNumbers.onCompleted() // oddNumbers는 이벤트 못 받는다
+// oddNumbers.onError(MyError.error)
+// evenNumbers.onNext(8)
+// evenNumbers.onCompleted() // evenNumbers도 이벤트 못 받는다
+
+negativeNumbers.onNext(-2) // maxConcurrent가 2이기 때문에 negativeNumber는 병합되지 않는다
+oddNumbers.onCompleted()
+--> 출력결과
+next(1)
+next(2)
+next(3)
+next(4)
+next(6)
+next(5)
+// error(error) -> 8 전에 error가 전달 되었으므로 종료됨
+//next(8)
+// completed
+next(-2) // oddNumbers에서 completed 이벤트를 전달하면 병합대상에서 oddNumbers가 제외되고, queue에 저장되어 있던 negativeNumbers가 병합대상에 추가된다(maxConcurrent는 2니까)
+</code>
+</pre>
+
+
+
+#### 38/98 combineLatest Operator
+- 소스 Observable이 방출하는 최신 요소를 병합하는 combineLatest 연산자
+- combine은 결합한다는 의미이다
+- 소스 Observable을 결합한 다음 파라미터로 전달한 함수를 실행하고 결과를 방출하는 새로운 Observable을 리턴한다
+- 핵심은 연산자가 리턴한 Observable이 언제 이벤트를 방출하는지 이해하는 것이다
+- 두 개의 Observable과 클로저를 파라미터를 받는다
+- Observable이 Next 이벤트를 통해 전달하는 요소들은 클로저 파라미터를 통해 클로저에 전달된다
+- 이후 클로저는 실행 결과를 리턴하고 연산자는 최종적으로 이 결과를 방출하는 Observable을 리턴한다
+- 다양한 오버로딩이 있는데, 클로저를 전달하지 않는 경우에는 리턴 타입이 달라진다
+- 파라미터로 전달한 Observable이 방출하는 요소들을 하나의 tuple로 합친 다음, 이 tuple을 방출하는 Observable을 리턴한다
+- Observable을 최대 여덟개까지 전달할 수 있는 연산자들이 선언되어 있다
+- 파라미터의 수만 다르고 동작 방식은 동일하다
+
+<pre>
+<code>
+let bag = DisposeBag()
+
+enum MyError: Error {
+  case error
+}
+
+let greetings = PublishSubject<String>()
+let languages = PublishSubject<String>()
+  
+Observable.combineLatest(greetings, languages) { lhs, rhs
+  -> String in
+  return "\(lhs), \(rhs)"
+}
+  .subscribe { print($0) }
+  .disposed(by: bag)
+  
+greetings.onNext("Hi")
+languages.onNext("World!")
+
+greetings.onNext("Hello")
+languages.onNext("RxSwift")
+
+// greetings.onCompleted()
+greetings.onError(MyError.error)
+languages.onNext("SwiftUI")
+
+languages.onCompleted()
+
+--> 출력결과
+next(Hi World!)
+next(Hello World!)
+next(Hello RxSwift)
+error(error) // 소스 Observable 중 error가 하나라도 전달되면 그 즉시 구독자에게 error 이벤트를 전달하고 종료한다
+// next(Hello SwiftUI)
+// completed
+
+</code>
+</pre>
+
+
+#### 39/98 zip Operator
+- Indexed Sequencing을 구현하는 zip 연산자
+- combineLatest와 비교해서 이해하면 쉽게 이해할 수 있다
+- zip 연산자는 소스 Observable이 방출하는 요소를 결합한다
+- Observable을 결합하고 클로저를 실행한 다음 이 결과를 방출하는 result Observable을 리턴한다
+- 집 연산자는 클로저에게 중복되는 요소를 전달하지 않고, index가 일치하는 짝을 전달한다
+- 첫 번째 요소는 첫 번째 요소와 결합하고, 두 번째 요소는 두 번째 요소와 결합한다
+- 소스 Observable이 방출하는 요소들을 순서를 일치시켜 결합하는 것을 Indexed Sequencing이라고 한다
+
+<pre>
+<code>
+let bag = DisposeBag()
+
+enum MyError: Error {
+  case error
+}
+
+let numbers = PublishSubject<Int>()
+let strings = PublishSubjct<String>()
+  
+Observable.zip(numbers, strings) { "\($0) - \($1)"}
+  .subscribe { print($0) }
+  .disposed(by: bag)
+  
+numbers.onNext(1)
+strings.onNext("one")
+
+numbers.onNext(2)
+strings.onNext("two")
+
+// numbers.onCompleted()
+numbers.onError(MyError.error)
+
+strings.onNext("three") // 짝이 없으므로 출력되지 않는다
+strings.onCompleted()
+--> 출력결과  
+next(1 - one)
+next(2 - two)
+error(error) // 소스 Observable 중에서 하나라도 error 이벤트를 전달하면 즉시 구독자에게 error 이벤트가 전달되고 종료된다
+// completed
+</code>
+</pre>
+
+
+#### 40/98 withLatestFrom Operator
+- trigger Observable이 Next 이벤트를 방출하면 data Observable이 가장 최근에 방출한 Next 이벤트를 구독자에게 전달하는 withLastestFrom 연산자
+- 연산자를 호출하는 Observable을 trigger Observable이라고 부르고
+- 파라미터로 전달하는 Observable을 data Observable이라고 부른다
+- trigger Observable이 Next 이벤트를 방출하면 data Observable이 가장 최근에 방출한 next 이벤트를 구독자에게 전달한다
+- 회원가입 기능을 구현할 때 사용할 수 있다
+- 이 연산자는 두 가지 형태로 사용한다
+- 첫 번째는 data Observable과 클로저를 파라미터로 받는다
+- 클로저에는 두 Observable이 방출하는 요소가 전달되고 여기에서 결과를 리턴한다
+- 연산자가 최종적으로 리턴하는 Observable은 클로저가 리턴하는 결과를 방출한다
+- 두 번째 형태는 trigger Observable에서 Next 이벤트를 전달하면 파라미터로 전달한 data Observable에서 가장 최근에 방출한 넥스트 이벤트를 가져온다
+- 이벤트에 포함된 요소를 방출하는 Observable을 리턴한다
+
+<pre>
+<code>
+let bag = DisposeBag()
+
+enum MyError: Error {
+  case error
+}
+
+let trigger = PublishSubject<Void>()
+let data = PublishSubject<String>()
+
+trigger.withLatestFrom(data)
+  .subscribe { print($0) }
+  .disposed(by: bag)
+  
+data.onNext("Hello")
+trigger.onNext(())
+trigger.onNext(())
+
+// data.onCompleted()
+// data.onError(MyError.error)
+// trigger.onNext(())
+trigger.onCompleted()
+
+--> 출력결과
+next(Hello)
+next(Hello)
+// error(error) // completed와 달리 error는 바로 전달된다
+// next(Hello) // completed가 아닌 next가 전달 된다
+completed
+
+
+</code>
+</pre>
+
+
+
+#### 41/98 sample Operator
+- trigger Observable이 Next 이벤트를 전달할 때마다 data Observable이 Next 이벤트를 방출하지만, 동일한 Next 이벤트를 반복해서 방출하지 않는 sample 연산자
+- dataObservable.withLatestFrom(triggerObservable) 과 같은 형태로 사용한다 -> withLatestFrom 연산자와 반대다
+- data Observable에서 연산자를 호출하고 trigger Observable을 파라미터로 전달한다
+- trigger Observable에서 Next 이벤트를 전달할 때마다 data Observable이 최신 이벤트를 방출한다
+- 동일한 Next 이벤트를 반복해서 방출하지 않는다
+
+
+<pre>
+<code>
+let bag = DisposeBag()
+
+enum MyError: Error {
+  case error
+}
+
+let trigger = PublishSubject<Void>()
+let data = PublishSubject<String>()
+  
+data.sample(trigger)
+  .subscribe { print($0) }
+  .disposed(by: bag)
+
+trigger.onNext(())
+data.onNext("Hello")
+
+trigger.onNext(())
+trigger.onNext(()) // 한 번 더 해도 추가로 Next 이벤트가 방출되지 않는다
+
+// data.onCompleted()
+// trigger.onNext(())
+
+data.onError(MyError.error)
+
+--> 출력결과
+next(Hello)
+error(error) // error는 trigger Observable이 Next 이벤트를 방출하지 않더라도 즉시 구독자에게 전달된다
+// completed // sample 연산자는 completed 이벤트를 그대로 전달한다
+
+
+</code>
+</pre>
+
+#### 42/98 switchLatest Operator
+- 가장 최근에 방출된 옵저버블을 구독하고, 이 옵저버블이 전달하는 이벤트를 구독자에게 전달하는 switchLatest 연산자
+- 가장 최근 옵저버블이 방출하는 이벤트를 구독자에게 전달한다
+- 어떤 옵저버블인지 가장 최근 옵저버블인지 이해하는 것이 핵심이다
+
+#### 43/98 reduce Operator
+- 시드 값과 옵저버블이 방출하는 요소를 대상으로 클로저를 실행하고 최종 결과를 옵저버블로 방출하는 reduce 연산자
+
