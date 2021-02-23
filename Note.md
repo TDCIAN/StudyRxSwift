@@ -1789,3 +1789,197 @@ completed
 </pre>
 
 // 20/02/23 여기까지
+
+### Conditional Operators
+#### 44/98 amb Operator
+- 여러 Observable 중에서 가장 먼저 이벤트를 방출하는 Observable을 선택하는 amb 연산자
+- 두 개 이상의 소스 Observable 중에서 가장 먼저 Next 이벤트를 전달하는 Observable을 구독하고 나머지는 무시한다
+- 여러 서버로 요청을 전달하고 가장 빠른 응답을 처리하는 패턴을 구현할 수 있다
+- amb 연산자는 하나의 Observable을 파라미터로 받는다
+- 두 Observable 중에서 먼저 이벤트를 전달하는 Observable을 구독하고 이 Observable의 이벤트를 구독자에게 전달하는 새로운 Observable을 리턴한다
+- 세 개 이상의 Observable을 대상으로 연산자를 사용해야 한다면 Type 메소드로 구현된 연산자를 사용하면 된다
+- 모든 소스 Observable을 배열 형태로 전달한다
+
+<pre>
+<code>
+let bag = DisposeBag()
+
+enum MyError: Error {
+  case error
+}
+
+let a = PublishSubject<String>()
+let b = PublishSubject<String>()
+let c = PublishSubject<String>()
+  
+// a.amb(b)
+Observable.amb([a, b, c]) // 이렇게 하면 여러 소스 Observable을 받을 수 있다
+  .subscribe { print($0) }
+  .disposed(by: bag)
+  
+a.onNext("A") // 얘가 먼저 도착했으니까 얘만 전달된다
+b.onNext("B")
+
+b.onCompleted()
+a.onCompleted()
+
+--> 출력결과
+next(A)
+completed
+
+</code>
+</pre>
+
+
+### Time-based Operators
+#### 45/98 interval Operator
+- 지정된 주기마다 정수를 방출하는 interval 연산자
+- 첫 번째 파라미터로 반복 주기(RxTimeInterval -> Dispatch Time Interval과 같다)를 받고, 두 번째 파라미터로 정수를 방출할 scheduler를 받는다
+- 연산자가 리턴하는 Observable은 지정된 주기마다 정수를 반복적으로 방출한다
+- 종료 시점을 지정하지 않기 때문에 직접 dispose 하기 전까지 계속해서 방출한다
+- 방출하는 정수의 형식은 Int로 한정되지 않는다. 다양한 정수 형식 지원이 가능하다
+- 하지만 double이나 문자열은 사용 불가하다
+- interval 연산자가 생성하는 Observable은 내부에 timer를 가지고 있다
+- timer가 시작되는 시점은 생성 시점이 아니다. 구독자가 구독을 시작하는 시점이다
+- Observable에서 새로운 구독자가 추가될 때마다 새로운 timer가 생성된다
+- 새로운 구독이 추가되는 시점에 내부에 있는 timer가 시작된다는 점이 interval 연산자의 핵심이다
+
+
+<pre>
+<code>
+let i = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance)
+
+let subscription1 = i.subscribe { print("1 >> \($0))}
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 5) { // 5초 뒤에 디스포즈 되도록 설정
+  subscription1.disposed()
+}
+
+var subscription2: Disposable?
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+  subscription2 = i.subscribe { print("2 >> \($0)")}
+}
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 7) {
+  subscription2?.dispose()
+}
+--> 출력결과
+1 >> next(0)
+1 >> next(1)
+1 >> next(2)
+2 >> next(0)
+1 >> next(3)
+2 >> next(1)
+1 >> next(4)
+2 >> next(2)
+2 >> next(3)
+
+</code>
+</pre>
+
+#### 46/98 timer Operator
+- 지연 시간과 반복 주기를 지정해서 정수를 방출하는 timer 연산자
+- interval과 마찬가지로 정수를 반복적으로 방출하는 Observable을 생성한다
+- 하지만 지연 시간과 반복 주기를 설정할 수 있다
+- interval과 마찬가지로 Type 메소드로 구현되어 있다
+- 리턴되는 Observable이 방출하는 요소는 fixedWidthInteger로 제한되어 있다
+- 세 개의 파라미터를 받는다
+- 첫 번째 파라미터는 첫 번째 요소가 방출되기까지의 상대적인 시간이다(구독을 시작하고, 첫 번째 요소가 구독자에게 전달되는 시간) -> 1초를 전달하게 되면 구독 후 1초 뒤에 요소가 전달된다
+- 두 번째 파라미터는 반복주기이다. 기본 값은 nil로 돼 있다. 값에 따라 타이머 연산자의 동작 방식이 달라진다
+- 세 번째 파라미터는 타이머가 동작할 scheduler를 전달한다
+
+<pre>
+<code>
+let bag = DisposeBag()
+
+//Observable<Int>.timer(.seconds(1), scheduler: MainScheduler.instance) // 여기서 1초는 첫 번째 요소가 구독자에게 전달되는 상대적인 시간
+//  .subscribe { print($0) }
+//  .disposed(by: bag)
+  
+Observable<Int>.timer(.seconds(1), period: .milliseconds(500), scheduler: MainScheduler.instance) // 반복주기(period)가 0.5초로 설정됨
+  .subscribe { print($0) }
+  .disposed(by: bag)  
+  
+--> 출력결과
+next(0)
+next(1)
+next(2)
+next(3)
+... // 0.5 초 간격으로 출력된다 -> 타이머를 중지하고 싶다면 직접 dispose
+
+</code>
+</pre>
+
+
+
+#### 47/98 timeout Operator
+- 지정된 시간 이내에 요소를 방출하지 않으면 error 이벤트를 전달하는 timeout 연산자
+- timeout 연산자는 소스 Observable이 방출하는 모든 요소에 timeout 정책을 적용한다
+- 첫 번째 파라미터로 timeout 시간을 전달하는데 이 시간 안에 Next 이벤트를 전달하지 않으면 error 이벤트를 전달하고 종료시킨다
+- 에러 형식은 RxError.timeout이다
+- 시간 내에 Next 이벤트를 전달하면 그대로 구독자에게 전달한다
+
+<pre>
+<code>
+let bag = DisposeBag()
+let subject = PublishSubject<Int>()
+
+//subject.timeout(.seconds(3), scheduler: MainScheduler.instance) // 3초 이내에 새로운 이벤트가 전달되지 않으면 에러 이벤트가 전달된다
+//  .subscribe { print($0) }
+//  .disposed(by: bag)
+
+subject.timeout(.seconds(3), other: Observable.just(0), scheduler: MainScheduler.instance) 
+  .subscribe { print($0) }
+  .disposed(by: bag)
+
+// Observable<Int>.timer(.seconds(1), period: .seconds(1), scheduler: MainScheduler.intance) // 1초 만에 전달되므로 timeout(3초)에 문제가 생기지 않는다
+// Observable<Int>.timer(.seconds(5), period: .seconds(1), scheduler: MainScheduler.intance) // 5초 만에 전달되므로 timeout(3초) 문제 발생
+Observable<Int>.timer(.seconds(2), period: .seconds(5), scheduler: MainScheduler.intance) // 2초 만에 전달되고 5초 주기로 전달
+  .subscribe(onNext: { subject.onNext($0) })
+  .disposed(by: bag)
+  
+--> 출력결과
+next(0) // 첫 번째 이벤트는 Subject가 전달한 이벤트
+next(0) // 이건 5초 뒤에 전달되어 타임아웃이 발생하여 두번째 파라미터(other)로 Observable이 전달되는데, 이 Observable(Observable.just(0))로 구독대상이 변경된다 
+completed
+  
+</code>
+</pre>
+
+
+#### 48/98 delay Operator
+- Next 이벤트가 전달되는 시점과 구독이 시작되는 시점을 지연시키는 방법
+- 첫 번째 파라미터에는 지연시킬 시간을 전달, 두 번째 파라미터에는 delay timer를 실행할 scheduler를 전달한다
+- 연산자가 리턴하는 Observable은 원본 Observable과 동일한 형식이지만, Next 이벤트가 구독자에게 전달되는 시점이 첫 번째 파라미터에 전달된 시간만큼 지연된다
+- error 이벤트는 지연 없이 즉시 전달된다
+- delaySubscription은 구독 시점을 지연시킬 뿐 Next 이벤트가 전달되는 시점은 지연시키지 않는다
+
+<pre>
+<code>
+let bag = DisposeBag()
+
+func currentTimeString() -> String {
+  let f = DateFormatter()
+  f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+  return f.string(from: Date())
+}
+
+Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance)
+  .take(10)
+  .debug()
+  .delay(.seconds(5), scheduler: MainScheduler.instance) // 구독 시점을 5초 뒤로 지연
+  .subscribe{ print(currentTimeString(), $0) }
+  .disposed(by: bag)
+
+Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance)
+  .take(10)
+  .debug()
+  .delaySubscription(.seconds(7), scheduler: MainScheduler.instance) // 7초 동안은 아무 로그도 출력되지 않는다 -> delay와 delaySubscription의 차이
+  .subscribe{ print(currentTimeString(), $0) }
+  .disposed(by: bag)
+  
+--> 출력결과
+강의 참고!
+</code>
+</pre>
