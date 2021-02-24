@@ -1983,3 +1983,23 @@ Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance)
 강의 참고!
 </code>
 </pre>
+
+
+### RxCocoa Basics
+#### RxCocoa Overview
+- RxCocoa는 Cocoa Framework에 Reactive의 장점을 더해주는 Library이다
+- RxCocoa는 RxSwift를 기반으로하는 별도의 라이브러리이다
+- Reactive는 RxSwift 라이브러리에 제네릭 구조체로 선언되어 있다
+- 형식을 리액티브 방식으로 확장할 때 사용한다
+- Reactive의 base 속성이 있는데, 확장할 형식의 인스턴스가 지정된다
+- ReactiveCompatible의 역할은 기존 형식에 알엑스 속성을 추가한다 -> 네임스페이스를 통해서 제공된다
+- 코드 마지막에 NSObject가 있는데 NSObject는 코코 ㅍ프레임워크에 있는 모든 클래스가 상속하는 루트 클래스이기 때무넹 결과적으로 모든 클래스에 알엑스라는 속성을 자동으로 추가한다는 의미이다
+- UIButton + Rx에는 tap이라는 멤버가 controler 이벤트 형식으로 선언되어 있다
+- 컨트롤이벤트는 Rx 코코아가 제공하는 트레이트이다
+- 트레이트는 유아이 처리에 특화된 옵저버블이고, 컨트롤이벤트뿐만 아니라 드라이버, 시그널 같은 고유한 특성을 가진 트레이트가 제공된다
+- 탭은 특별한 옵저버블이라 구독할 수 있다
+- 터치업 인사이드 이벤트가 전달될 때마다 구독자로 이벤트가 전달된다
+- UILabel + Rx
+- text 속성과 attributedText 속성이 선언되어 있다
+- text 속성은 Binder 형식으로 돼 있다
+- 바인더는 인터페이스 바인딩에 사용되는 특별한 옵저버이다 
