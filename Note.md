@@ -1985,6 +1985,358 @@ Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance)
 </pre>
 
 
+
+2020/02/25 여기부터
+### Sharing Subscription
+#### 49/98 Sharing Subscription
+- 구독 공유를 통해서 불필요한 중복 작업을 피하는 방법
+<pre>
+<code>
+let bag = DisposeBag()
+let source = Observable<String>.create { observer in
+  let url = URL(string: "https://kxcoding-study.azurewebsites.net/api/string")!
+  let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
+    if let data = data, let html = String(data: data, encoding: .utf8) {
+      observer.onNext(html)
+    }
+    observer.onCompleted()
+  }
+  task.resume()
+  
+  return Disposables.create {
+    task.cancel()
+  }
+}
+.debug()
+.share() // share 연산자를 추가하면 모든 구독자가 구독을 공유하기 때문에 중복을 제거해준다
+
+source.subscribe().disposed(by: bag)
+source.subscribe().disposed(by: bag)
+source.subscribe().disposed(by: bag)
+
+--> 출력결과
+// (중략) -> subcribed
+// (중략) -> Event next("Hello")
+// (중략) -> Event completed
+// (중략) -> isDisposed
+// (중략) -> subscribed
+// (중략) -> subscribed
+// (중략) -> Event next("Hello")
+// (중략) -> Event completed
+// (중략) -> isDisposed
+// (중략) -> Event next("Hello")
+// (중략) -> Event completed
+// (중략) -> isDisposed
+(중략) -> subcribed
+(중략) -> Event next("Hello")
+(중략) -> Event completed
+(중략) -> isDisposed
+</code>
+</pre>
+
+#### 50/98 multicast Operator
+- multicast 연산자와 Connectable Observable
+- multicast 연산자는 subject를 파라미터로 받는다
+- 원본 Observable이 방출하는 이벤트는 구독자에게 전달되는 것이 아니라 이 subject로 전달된다
+- subject는 전달받은 이벤트를 등록된 다수의 구독자에게 전달한다
+- 기본적으로 unicast 방식으로 동작하는 Observable을 multicast 방식으로 바꿔준다
+- 이를 위해 ConnectableObservable을 리턴한다
+- 일반 Observable은 구독자가 추가되면 새로운 sequence가 시작된다(이벤트 방출 시작)
+- ConnectableObservable은 sequence가 시작되는 시점이 다르다
+- 구독자가 추가되어도 sequence는 시작되지 않고, connect 메소드를 호출하는 시점에 sequence가 시작된다
+- 원본 Observable이 전달하는 이벤트는 구독자에게 바로 전달되는 것이 아니라 첫 번째 파라미터로 전달한 subject로 전달한다
+- 전달받은 subject가 등록된 모든 구독자에게 이벤트를 전달한다
+- 이를 통해 모든 구독자가 등록된 이후에 하나의 sequence가 시작되는 패턴을 구현할 수 있다
+- ConnectableObservableAdapter는 원본 Observable과 subject를 연결해주는 특별한 클래스이다
+
+
+<pre>
+<code>
+let bag = DisposeBag()
+let subject = PublishSubject<Int>()
+
+let source = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance).take(5).multicast(subject) // multicast 연산자 사용
+  
+source
+  .subscribe { print("A", $0} }
+  .disposed(by: bag)
+  
+source
+  .delaySubscription(.seconds(3), scheduler: MainScheduler.instance)
+  .subscribe { print("B", $0) }
+  .disposed(by: bag)
+  
+// multicast 연산자를 사용할 때는 connect() 연산자가 호출되어야만 이벤트 전달이 시작된다    
+source.connect().disposed(by: bag) // connect()의 리턴형은 Disposable이므로 dispose를 통해 메모리를 정리할 수 있다
+--> 출력결과
+// A next(0)
+// A next(1)
+// A next(2)
+// A next(3)
+// B next(0) // delaySubscription에서 .seconds(3)이니까
+// A next(4) // source에서 take(5)니까 5개 방출하고 끝남
+// A completed
+// B next(1)
+// B next(2)
+// B next(3)
+// B next(4)
+// B completed
+A next(0)
+A next(1)
+A next(2)
+B next(2) // 구독이 지연된 3초 동안 원본옵저버블이 전달한 두 번의 이벤트는 두 번째 구독자에게 전달되지 않았다
+A next(3)
+B next(3)
+A next(4)
+B next(4)
+A completed
+B completed
+
+
+</code>
+</pre>
+
+
+#### 51/98 publish Operator
+- PublishSubject를 활용해서 구독을 공유하는 publish 연산자
+- Publish 연산자는 단순하다
+- multicast 연산자를 호출하고 새로운 Publish Subject를 만들어서 파라미터로 전달한다
+- 그 다음 multicast가 리턴하는 ConnectableObservable을 그대로 리턴한다
+- multicast 연산자는 Observable을 공유하기 위해서 내부적으로 subject를 사용한다
+- 파라미터로 Publish Subject를 전달한다면 직접 생성해서 전달하는 것보다 publish 연산자를 사용해서 활용하는 방법이 단순하고 좋다
+- Publish Subject를 자동으로 생성해준다는 점을 제외하면 나머지는 multicast와 동일하다
+
+<pre>
+<code>
+let bag = DisposeBag()
+
+let source = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance).take(5).publish() // publish 연산자 사용
+  
+source
+  .subscribe { print("A", $0} }
+  .disposed(by: bag)
+  
+source
+  .delaySubscription(.seconds(3), scheduler: MainScheduler.instance)
+  .subscribe { print("B", $0) }
+  .disposed(by: bag)
+  
+source.connect().disposed(by: bag) // connect()의 리턴형은 Disposable이므로 dispose를 통해 메모리를 정리할 수 있다
+
+--> 출력결과
+A next(0)
+A next(1)
+A next(2)
+B next(2)
+A next(3)
+B next(3)
+A next(4)
+B next(4)
+A completed
+B completed
+
+
+</code>
+</pre>
+
+#### 52/98 replay Operator
+- Connectable Observable에 버퍼를 추가하고 새로운 구독자에게 최근 이벤트를 전달하는 방법
+- replay 연산자는 multicast 연산자를 호출한다
+- replay Subject를 만들어서 파라미터로 전달한다
+- multicast 연산자로 Publish Subject를 전달한다면 Publish 연산자를 사용하고, Replay Subject를 전달하면 replay 연산자를 사용한다
+- 두 연산자 모두 multicast를 조금 더 쉽게 사용하도록 도와주는 유틸리티 연산자이다
+- 보통은 파라미터를 통해 buffer의 크기를 지정하지만, buffer 크기에 제한이 없는 replayAll 연산자도 있다. 하지만 경우에 따라 메모리 사용량이 급격하게 증가하는 경우가 있어 가급적 사용하지 않는다
+- replay 연산자를 사용할 때 buffer 크기를 지정하는 데 유의해야 한다. 필요 이상으로 크게 잡을 경우 메모리 문제가 발생할 가능성이 높기 때문이다
+- 필요한 선에서 가장 작게 만들어야 하고, replayAll 연산자는 가급적 사용하지 말아야 한다
+
+<pre>
+<code>
+let bag = DisposeBag()
+// let subject = PublishSubject<Int>()
+// let subject = ReplaySubject<Int>.create(bufferSize: 5) // 최대 5개의 이벤트를 버퍼에 저장
+let source = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance).take(5).replay(5)
+
+source
+  .subscribe { print("A", $0) }
+  .disposed(by: bag)
+  
+source
+  .delaySubscription(.seconds(3), scheduler: MainScheduler.instance)
+  .subscribe { print("B", $0) }
+  .disposed(by: bag)
+  
+source.connect() 
+
+--> 출력결과
+// A next(0)
+// A next(1)
+// A next(2)
+// B next(2)
+// A next(3)
+// B next(3)
+// A next(4)
+// B next(4)
+// A completed
+// B completed
+A next(0)
+A next(1)
+B next(0)
+B next(1)
+A next(2)
+B next(2)
+A next(3)
+B next(3)
+A next(4)
+B next(4)
+A completed
+B completed
+
+</code>
+</pre>
+
+#### 53/98 refCount Operator
+- refCount 연산자와 RefCount 옵저버블
+- refCount 연산자는 ConnectableObservableType이다
+- 일반 Observable에서는 사용할 수 없고, ConnectableObservable에서만 사용할 수 있다
+- 파라미터는 없고, Observable을 리턴한다
+- refCount는 ConnectableObservable을 통해 생성하는 특별한 Observable이다
+- 앞으로 이 Observable을 refCountObservable이라 부르겠다
+- refCountObservable은 내부에 ConnectableObservable을 유지하면서 새로운 구독자가 추가되는 시점에 자동으로 커넥트 메소드를 호출한다
+- 구독자가 구독을 중지하고 더 이상 다른 구독자가 없다면 ConnectableObservable에서 sequence를 중지한다
+- 새로운 구독자가 추가되면 다시 커넥트 메소드를 호출한다
+- 이 때 ConnectableObservable에서는 새로운 시퀀스가 시작된다
+
+
+<pre>
+<code>
+let bag = DisposeBag()
+let source = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance).debug().publish().refCount() // publish 연산자로 옵저버블을 공유하고 있다
+
+let observer1 = source
+  .subscribe { print("A", $0)}
+  
+// source.connect() -> refCount는 내부적으로 connect를 호출하기 때문에 별도로 connect 연산자를 호출할 필요가 없다
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 3) { // 3초 뒤에 구독을 중지
+  observer1.dispose()
+}
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 7) { // 7초 뒤에 구독을 시작했다가
+  let observer2 = source.subscribe { print("B", $0) }
+  
+  DispatchQueue.main.asyncAfter(deadline: .now() + 3) { // 3초 뒤에 구독을 중지
+    observer2.dispose()
+  }
+}
+
+
+</code>
+</pre>
+
+#### 54/98 share Operator
+- share 연산자를 활용해서 구독을 공유하는 방법
+- share 연산자는 두 개의 파라미터를 받는다
+- 첫 번째 파라미터(replay: Int = 0)는 replay buffer의 크기이다. 파라미터로 0을 전달하면 multicast를 호출할 때 Publish Subject를 전달한다
+  - 0보다 큰 값을 전달한다면 replay Subject를 전달한다
+  - 기본값이 0으로 선언되어 있기 때문에 다른 값을 전달하지 않는다면 새로운 구독자는 구독 이후에 방출되는 이벤트만 전달 받는다
+  - multicast 연산자를 호출하니까 하나의 subject를 통해 sequence를 공유한다
+- 두 번째 파라미터(scope: SubjectLifetimeScope = .whileConnected)는 이 subject의 수명을 결정한다
+  - 기본값은 whileConnected로 선언되어 있다
+  - 새로운 구독자가 추가되면(새로운 connection이 시작되면) 새로운 subject가 생성된다
+  - 이후 connection이 종료되면 subject는 사라진다
+  - connection마다 새로운 subject가 생성되기 때문에 connection은 다른 connection과 격리된다
+  - 반대로 두 번째 파라미터에 forever를 전달하면 모든 connection이 하나의 subject를 공유한다
+
+- share 연산자가 리턴하는 Observable은 refCount Observable이라는 점을 유념해라
+
+<pre>
+<code>
+let bag = DisposeBag()
+let source = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance).debug().share(replay: 5, scope: .forever) // 두 번째 파라미터에 forever를 넣으면 모든 구독자가 하나의 subject를 공유한다
+
+let observer1 = source
+  .subscribe { print("A", $0) }
+  
+let observer2 = source
+  .delaySubscription(.seconds(3), scheduler: MainScheduler.instance) // 3초 뒤에 구독을 시작
+  .subscribe { print("B", $0) }
+  
+DispatchQueue.main.asyncAfter(deadline: .now() + 5) { // 5초 뒤에 모든 구독을 중지 -> 내부의 ConnectableObservable 중지
+  observer1.dispose()
+  observer2.dispose()
+}
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 7) { // 새로운 sequence가 시작된다
+  let observer3 = source.subscribe { print("C", $0) }
+  
+  DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+    observer3.dispose()
+  }
+}
+  
+--> 출력결과
+// (중략) -> subscribed
+// (중략) -> Event next(0)
+// A next(0)
+// (중략) -> Event next(1)
+// A next(1)
+// (중략) -> Event next(2)
+// A next(2)
+// (중략) -> Event next(3)
+// A next(3)
+// B next(3) // 3초 뒤에 구독을 시작 -> 이전의 세 개의 이벤트는 전달을 받지 못한다
+// (중략) -> Event next(4)
+// A next(4)
+// B next(4)
+// (중략) -> isDisposed
+// (중략) -> subscribed // 이 로그가 출력되는 시점에 새로운 subject가 생성된다
+// (중략) -> Event next(0) // 그래서 새로운 구독자가 처음 받는 Next 이벤트는 0
+// C next(0) // share 연산자
+// (중략) -> Event next(1)
+// C next(1)
+// (중략) -> Event next(2)
+// C next(2)
+// (중략) -> isDisposed
+
+(중략) -> subscribed
+(중략) -> Event next(0)
+A next(0)
+(중략) -> Event next(1)
+A next(1)
+(중략) -> Event next(2)
+A next(2)
+B next(0) // share 연산자의 첫 번째 파라미터(replay)가 5로 설정돼 있으므로 저장된 이벤트가 한꺼번에 전달됨
+B next(1) // share 연산자의 첫 번째 파라미터(replay)가 5로 설정돼 있으므로 저장된 이벤트가 한꺼번에 전달됨
+B next(2)
+(중략) -> Event next(3)
+A next(3)
+B next(3)
+(중략) -> Event next(4)
+A next(4)
+B next(4)
+(중략) -> isDisposed // 여기에서 중지된 sequence가 다시 공유되는 것은 아니다
+C next(0) // share 연산자의 첫 번째 파라미터(replay)가 5로 설정돼 있으므로 저장된 이벤트가 한꺼번에 전달됨
+C next(1) // share 연산자의 첫 번째 파라미터(replay)가 5로 설정돼 있으므로 저장된 이벤트가 한꺼번에 전달됨
+C next(2) // share 연산자의 첫 번째 파라미터(replay)가 5로 설정돼 있으므로 저장된 이벤트가 한꺼번에 전달됨
+C next(3) // share 연산자의 첫 번째 파라미터(replay)가 5로 설정돼 있으므로 저장된 이벤트가 한꺼번에 전달됨
+C next(4) // share 연산자의 첫 번째 파라미터(replay)가 5로 설정돼 있으므로 저장된 이벤트가 한꺼번에 전달됨
+(중략) -> subscribed
+(중략) -> Event next(0)
+C next(0) // 이어지는 이벤트가 5가 아니라 0인 것은 sequence가 중지된 다음에 새로운 구독자가 추가되면 새로운 sequence가 시작되기 때문임
+(중략) -> Event next(1)
+C next(1)
+(중략) -> Event next(2)
+C next(2)
+(중략) -> isDisposed
+</code>
+</pre>
+
+### Scheduler
+#### 55/98 Scheduler
+
+// 2020/02/25 여기까지
+
+
 ### RxCocoa Basics
 #### RxCocoa Overview
 - RxCocoa는 Cocoa Framework에 Reactive의 장점을 더해주는 Library이다
