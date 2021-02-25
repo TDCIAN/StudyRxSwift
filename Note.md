@@ -2331,11 +2331,164 @@ C next(2)
 </code>
 </pre>
 
+// 2020/02/26 여기부터
 ### Scheduler
 #### 55/98 Scheduler
+- 코드를 원하는 스레드에서 실행하는 방법
+- iOS 앱을 만들다가 스레드 처리가 필요하다면 GCD를 사용한다
+- RxSwift에서는 GCD 대신 scheduler를 사용한다
+- scheduler는 특정 코드가 실행되는 컨텍스트를 추상화한 것이다
+- 컨텍스트는 로우레벨 스레드가 될 수도 있고, DispatchQueue나 OperationQueue가 될 수도 있다
+- scheduler는 추상화된 컨텍스트이기 때문에 스레드와 1:1로 매칭되지 않는다
+- 하나의 스레드에 두 개 이상의 개별 scheduler가 존재하거나, 하나의 scheduler가 두 개의 스레드에 걸쳐 있는 경우도 있다
+- 이런 내부적인 내용까지 직접 알 필요는 없고, GCD와 유사하다는 점만 알면 된다
+- UI를 업데이트 하는 경우에는 Main 스레드를 사용해야 한다
+  - GCD에서는 Main Queue를 사용한다
+  - RxSwift에서는 Main Scheduler를 사용한다
+- Network 요청이나 파일 처리 작업은 Main 스레드에서 사용하면 블로킹이 발생한다
+  - GCD에서는 Global Queue를 사용한다
+  - RxSwift에서는 Background Scheduler를 사용한다
+- RxSwift는 GCD와 마찬가지로 다양한 기본 scheduler를 제공한다
+- 내부적으로 GCD와 유사한 방식으로 동작하고, 실행할 작업을 스케줄링 한다.
+- 스케줄링 방식에 따라 Serial Scheduler와 Concurrent Scheduler로 구분한다
+- Serial Scheduler
+  - CurrentThreadScheduler가 가장 기본적인 scheduler이다
+  - Main 스레드와 연관된 scheduler는 MainScheduler이다. Main Queue처럼 UI를 업데이트할 때 사용한다
+  - 작업을 실행할 DispatchQueue를 직접 지정하고 싶다면 SerialDispatchQueueScheduler나 ConcurrentDispatchQueueScheduler를 활용한다
+  - 앞에서 사용한 Main Scheduler는 Serial DispatchQueue의 일종이다
+  - 백그라운드 작업을 실행할 때는 DispatchQueue Scheduler를 사용한다
+  - 실행 순서를 제외하거나 동시에 실행 가능한 작업 수를 제한하고 싶다면 OperationQueueScheduler를 사용한다. 이 scheduler는 DispatchQueue가 아닌 OperationQueue를 사용해서 생성한다
+- 이 외에도 Unit Test에서 사용하는 TestScheduler가 있고, scheduler를 직접 구현할 수도 있다(Custom Scheduler)
 
-// 2020/02/25 여기까지
+<pre>
+<code>
+let bag = DisposeBag()
 
+Observable.of(1, 2, 3, 4, 5, 6, 7, 8, 9)
+  .filter { num -> Bool in
+    print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> filter")
+    return num.isMultiple(of: 2)
+  }
+  .map { num -> Int in
+    print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> map")
+    return num * 2
+  } // 여기까지만 코드가 작성되었다면 Observable이 어떤 요소를 방출하고, 어떻게 처리해야 하는지를 나타낼 뿐이다. Observable이 생성되고 연산자가 호출되는 시점은 구독이 시작되는 시점이다.
+  .subscribe { // 구독이 시작되는 시점: Observable이 생성되고 연산자가 호출된다
+    print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> map")
+    print($0)
+  }
+  .disposed(by: bag)
+  
+--> 출력결과
+...
+Main Thread >> map
+Main Thread >> map
+next(16)
+Main Thread >> filter
+Main Thread >> map
+completed
+  
+</code>
+</pre>
+
+- scheduler를 지정하는 코드가 없다면 기본 scheduler인 CurrentThreadScheduler가 사용된다
+- 플레이그라운드가 실행되는 스레드는 Main 스레드이다
+- RxSwift에서 scheduler를 지정할 때는 observeOn(_ :) 메소드와 subscribeOn(_ :) 메소드를 사용한다
+- observeOn(_ :) 메소드는 연산자를 실행할 scheduler를 지정한다
+
+<pre>
+<code>
+let bag = DisposeBag()
+let backgroundScheduler = ConcurrentDispatchQueueScheduler(queue: DispatchQueue.global())
+
+
+Observable.of(1, 2, 3, 4, 5, 6, 7, 8, 9)
+  .filter { num -> Bool in
+    print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> filter")
+    return num.isMultiple(of: 2)
+  }
+  .observeOn(backgroundScheduler) // observeOn(_ :) 메소드는 이어지는 연산자들이 작업을 실행할 scheduler를 지정한다. 그래서 뒤에 있는 맵은 백그라운드 scheduler에서 실행되지만, 앞에 있는 filter에는 영향을 주지 않는다
+  .map { num -> Int in
+    print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> map")
+    return num * 2
+  }
+  .subscribe {
+    print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> subscribe")
+    print($0)
+  }
+  .disposed(by: bag)
+  
+--> 출력결과
+Main Thread >> filter
+Main Thread >> filter
+Main Thread >> filter
+Background Thread >> map
+Background Thread >> subscribe
+next(4)
+Background Thread >> map
+Background Thread >> subscribe
+next(8)
+Background Thread >> map
+Background Thread >> subscribe
+next(12)
+Background Thread >> map
+Background Thread >> subscribe
+next(16)
+Background Thread >> subscribe
+completed
+</code>
+</pre>
+
+- observeOn(_ :) 메소드로 지정한 scheduler는 다른 scheduler로 변경하기 전까지 계속 사용된다
+- subscribeOn(_ :) 메소드는 구독을 시작하고 종료할 때 사용할 scheduler를 지정한다
+- 구독을 시작하면 Observable에서 새로운 이벤트가 방출된다. 이벤트를 방출할 scheduler를 지정하는 것이다
+- create 연산자로 구현한 코드 역시 이 메소드로 지정한 scheduler에서 실행된다
+- 이 메소드를 사용하지 않는다면 subscribeOn(_ :) 메소드가 호출한 scheduler에서 새로운 sequence가 시작된다
+
+<pre>
+<code>
+let bag = DisposeBag()
+let backgroundScheduler = ConcurrentDispatchQueueScheduler(queue: DispatchQueue.global())
+
+Observable.of(1, 2, 3, 4, 5, 6, 7, 8, 9)
+  .subscribeOn(MainScheduler.instance) // 메소드 이벤트 때문에 많이 혼동하게 되는데 subscribeOn(_ :) 메소드는 subscribe 메소드가 호출되는 scheduler를 지정하는 것이 아니다. 그리고 이어지는 연산자가 호출되는 scheduler를 지정하는 것도 아니다. Observable이 시작되는 시점에 어떤 scheduler를 사용할지 지정하는 것이다. 이 차이를 확실하게 구분해야 한다. 그리고 observeOn 메소드와 달리 호출 시점이 중요하지 않다.
+  .filter { num -> Bool in
+    print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> filter")
+    return num.isMultiple(of: 2)
+  }
+  .map { num -> Int in
+    print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> map")
+    return num * 2
+  } // Observable이 어떤 요소를 방출하고, 어떻게 처리해야 하는지를 나타낼 뿐이다. Observable이 생성되고 연산자가 호출되는 시점은 구독이 시작되는 시점이다.
+  .observeOn(backgroundScheduler) // observeOn 메소드는 이어지는 연산자들이 작업을 실행할 scheduler를 지정한다. 그래서 뒤에 있는 map은 backgroundScheduler에서 실행되지만, 앞에 있는 filter에는 영향을 주지 않는다
+  .subscribe {
+    print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> subscribe")
+    print($0)
+  }
+  .disposed(by: bag)
+  
+--> 출력결과
+...
+Background Thread >> map
+Main Thread >> subscribe
+next(4)
+Main Thread >> subscribe
+next(8)
+Main Thread >> subscribe
+next(12)
+Main Thread >> subscribe
+next(16)
+Main Thread >> subscribe
+completed
+
+</code>
+</pre>
+
+- subscribeOn(_ :) 메소드는 Observable이 시작되는 scheduler를 지정한다
+- observeOn(_ :) 메소드는 이어지는 연산자가 실행되는 scheduler를 지정한다
+
+
+// 2020/02/26 여기까지
 
 ### RxCocoa Basics
 #### RxCocoa Overview
