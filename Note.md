@@ -2490,6 +2490,23 @@ completed
 
 // 2020/02/26 여기까지
 
+// 2020/02/28 여기부터
+### Error Handling
+#### 56/98 Error Handling
+- Observable에서 전달한 error 이벤트가 구독자에게 전달되면 구독이 종료되고 더 이상 새로운 이벤트가 전달되지 않는다
+- 더 이상 새로운 이벤트를 처리할 수 없게 된다
+- RxSwift는 두 가지 방법으로 문제를 해결
+- 첫 번째 방법은 error 이벤트가 전달되면 새로운 Observable을 리턴한다 - catchError 연산자
+  - Observable이 전달하는 Next 이벤트와 completed 이벤트는 그대로 구독자에게 전달
+  - 반면 error 이벤트가 전달되면 새로운 Observable을 구독자에게 전달
+- 두 번째 방법은 error가 발생한 경우 Observable을 다시 구독하는 것 - retry 연산자
+  - 에러가 발생하지 않을 때까지 무한정 재시도 하거나, 재시도 횟수를 제한할 수 있다
+
+
+#### 57/98 catchError Operator
+
+#### 58/98 retry Operator
+
 ### RxCocoa Basics
 #### RxCocoa Overview
 - RxCocoa는 Cocoa Framework에 Reactive의 장점을 더해주는 Library이다
@@ -2508,3 +2525,4 @@ completed
 - text 속성과 attributedText 속성이 선언되어 있다
 - text 속성은 Binder 형식으로 돼 있다
 - 바인더는 인터페이스 바인딩에 사용되는 특별한 옵저버이다 
+
