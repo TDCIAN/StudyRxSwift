@@ -2951,6 +2951,85 @@ result
 </code>
 </pre>
 
-2020/03/01 여기까지
+
+
 ### RxCocoa Common Patterns
 #### 64/98 Table View in RxCocoa
+- Observable을 테이블뷰에 바인딩할 때는 items 메소드를 사용한다
+- 코드예시
+- Cocoatouch Framework 의 데이터 소스가 섞이게 되면 rx는 더 이상 동작하지 않는다
+<pre>
+<code>
+
+var nameList = appleProducts.map { $0.name }
+var productList = appleProducts
+
+@IBOutlet weak var listTableView: UITableView!
+
+let priceFormatter: NumberFomatter = {
+  let f = NumberFormatter()
+  f.numberStyle = NumberFormatter.Style.currency
+  f.locale = Locale(identifier: "KO_kr")
+  
+  return f
+}()
+
+let bag = DisposeBag()
+
+let nameObservable = Observable.of(appleProducts.map { $0.name })
+
+let productObservable = Observable.of(appleProducts)
+
+override func viewDidLoad() {
+  super.viewDidLoad()
+  
+  // #1
+  nameObservable.bind(to: listTableView.rx.items) { tableView, row, element in
+    let cell = tableView.dequeueReusableCell(withIdentifier: "standardCell")!
+    cell.textLabel?.text = element
+    return cell
+  }
+  .disposed(by: bag)
+  
+  // #2
+  nameObservable.bind(to: listTableView.rx.items(cellIdentifier: "standardCell")) { row, element, cell in
+    cell.textLabel?.text = element
+  }
+  .disposed(by: bag)
+  
+  // #3
+  productObservable.bind(to: listTableView.rx.items(cellIdentifier: "productCell", cellType: ProductTableViewCell.self)) { [weak self] row, element, cell, in
+    cell.categoryLabel.text = element.category
+    cell.productNameLabel.text = element.name
+    cell.summaryLabel.text = element.summary
+    cell.priceLabel.text = self?.priceFormatter.string(For: element.price)
+  }
+  .disposed(by: bag)
+  
+//  listTableView.rx.modelSelected(Product.self)
+//    .subscribe(onNext: { product in
+//      print(product.name)
+//    })
+//    .disposed(by: bag)
+//    
+//  listTableView.rx.itemSelected
+//    .subscribe(onNext: {[weak self] indexPath in
+//      self?.listTableView.deselectRow(at: indexPath, animated: true) // 선택 상태를 바로 제거 해준다
+//    })
+//    .disposed(by: bag)
+
+  // 클릭하고 나면 다시 선택해제 되는 작업을 한꺼번에 하기
+  Observable.zip(listTableView.rx.modelSelected(Product.self), listTableView.rx.itemSelected)
+    .bind { [weak self] (product, indexPath) in
+      self?.listTableView.deselectRow(at: indexPath, animated: true)
+      print(product.name)
+    }
+    .disposed(by: bag)
+
+  //listTableView.delegate = self
+  listTableView.rx.setDelegate(self)
+    .disposed(by: bag)
+  
+}
+</code>
+</pre>
