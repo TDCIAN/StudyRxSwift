@@ -254,7 +254,7 @@ Completed
 - Error 이벤트가 전달된 경우에는 Next 이벤트가 구독자에게 전달되지 않고, Error 이벤트만 전달된다
 
 
-#### 12/98 Relays (0216 여기까지)
+#### 12/98 Relays 
 - RxSwift는 Publish Relay와 Behavior Relay를 제공한다
 - Relay는 Subject와 유사한 특징을 가지고 있고, 내부에 Subject를 래핑하고 있다
 - Publish Relay는 Publish Subject를 래핑하고 있고, Behavior Relay는 Behavior Subject를 래핑하고 있다
@@ -276,7 +276,7 @@ Completed
 
 
 ### Create Operators
-#### 13/98 just, of, from (0217 여기부터)
+#### 13/98 just, of, from 
 - just는 하나의 항목을 방출하는 Observable을 생성한다
 <pre>
 <code>
@@ -531,7 +531,7 @@ Observable<String>.create { (observer) -> Disposable in
 
 
 
-#### 18/98 empty, error(2020/02/18 여기까지)
+#### 18/98 empty, error
 - 두 연산자가 생성한 Observable은 next 이벤트를 전달하지 않는다는 공통점이 있다
 - 둘 다 어떠한 요소도 방출하지 않는다
 - empty 연산자는 completed 이벤트를 전달하는 Observable을 생성한다 
@@ -568,7 +568,7 @@ error(error)
 </pre>
 
 ### Filtering Operators
-#### 19/98 ignoreElementsOperator (2020/02/19 여기부터)
+#### 19/98 ignoreElementsOperator 
 - ignoreElements는 Observable이 방출하는 next 이벤트를 필터링하고 completed 이벤트와 error 이벤트만 구독자로 전달한다
 - ignoreElements는 파라미터를 받지 않는다
 - 리턴형은 Completable인데, Completable은 트레이츠라고 부르는 특별한 Observable이다
@@ -897,7 +897,7 @@ completed
 
 2020/02/19 여기까지
 
-#### 26/98 debounce, throttle Operator (2020/02/20 여기부터)
+#### 26/98 debounce, throttle Operator
 - 두 연산자는 짧은 시간동안 반복적으로 방출되는 이벤트를 제어한다는 공통점이 있다
 - 연산자로 전달하는 파라미터도 동일하다
 - 하지만 연산의 결과는 완전히 다르다
@@ -1026,7 +1026,7 @@ success([1,2])
 </pre>
 
 
-#### 28/98 map Operator (2020/02/21 여기부터)
+#### 28/98 map Operator
 - map 연산자는 Observable 배출하는 항목을 대상으로 함수를 실행하고 결과를 새로운 Observable로 배출한다
 - map 연산자를 사용하다보면 파라미터와 동일한 형식을 리턴해야 한다고 생각하는 경우가 많지만 그런 제약은 없다
 - map 연산자는 Observable이 방출하는 요소들을 대상으로 클로저를 실행하고 그 결과를 구독자에게 전달한다
@@ -1096,7 +1096,7 @@ next(22)
 </pre>
 
 
-#### 30/98 flatMapFirst, flatMapLatest Operator (2020/02/22 여기부터)
+#### 30/98 flatMapFirst, flatMapLatest Operator
 - flatMap 연산자에서 파생된 연산자들이다
 - flatMap 연산자에 대한 이해가 우선돼야 한다
 - flatMapFirst의 연산자, 리턴형은 flatMap과 동일하다
@@ -1356,10 +1356,6 @@ next(["Orange"])
 completed
 </code>
 </pre>
-
-// 2020/02/22 여기까지
-
-// 2020/02/23 여기부터
 
 ### Combining Operators
 #### 35/98 startWith Operator
@@ -1788,8 +1784,6 @@ completed
 </code>
 </pre>
 
-// 20/02/23 여기까지
-
 ### Conditional Operators
 #### 44/98 amb Operator
 - 여러 Observable 중에서 가장 먼저 이벤트를 방출하는 Observable을 선택하는 amb 연산자
@@ -1986,7 +1980,6 @@ Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance)
 
 
 
-2020/02/25 여기부터
 ### Sharing Subscription
 #### 49/98 Sharing Subscription
 - 구독 공유를 통해서 불필요한 중복 작업을 피하는 방법
@@ -2331,7 +2324,6 @@ C next(2)
 </code>
 </pre>
 
-// 2020/02/26 여기부터
 ### Scheduler
 #### 55/98 Scheduler
 - 코드를 원하는 스레드에서 실행하는 방법
@@ -2488,9 +2480,7 @@ completed
 - observeOn(_ :) 메소드는 이어지는 연산자가 실행되는 scheduler를 지정한다
 
 
-// 2020/02/26 여기까지
 
-// 2020/02/28 여기부터
 ### Error Handling
 #### 56/98 Error Handling
 - Observable에서 전달한 error 이벤트가 구독자에게 전달되면 구독이 종료되고 더 이상 새로운 이벤트가 전달되지 않는다
@@ -3033,3 +3023,271 @@ override func viewDidLoad() {
 }
 </code>
 </pre>
+
+
+
+#### 65/98 Collection View in RxCocoa
+- binding을 할 때는 items 메소드를 사용한다
+- 예시코드
+
+<pre>
+<code>
+class RxCocoaCollectionViewViewController: UIViewController {
+  let bag = DisposeBag()
+  
+  @IBOutlet weak var listCollectionView: UICollectionView!
+  
+  let colorObservable = Observable.of(MaterialBlue.allColors)
+  
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    
+    colorObservable.bind(to: listCollectionView.rx.items(cellIdentifier: "colorCell", cellType: ColorCollectionViewCell.self)) { index, color, cell in
+      cell.backgroundColor = color
+      cell.hexLabel.text = color.rgbHexString
+    }
+    .disposed(by: bag)
+    
+    // 선택 이벤트 처리
+    listCollectionView.rx.modelSelected(UIColor.self)
+      .subscribe(onNext: { color in
+        print(color.rgbHextString)
+      })
+      .disposed(by: bag)
+      
+    // delegate 지정
+//    listCollectionView.delegate = self
+    listCollectionView.rx.setDelegate(self)
+      .disposed(by: bag)
+    
+  }
+  
+}
+</code>
+</pre>
+
+
+#### 66/98 Alert Controller in RxCocoa
+- 예시 코드
+<pre>
+<code>
+class CocoaTouchAlertViewController: UIViewController {
+  @IBOutlet weak var colorView: UIView!
+  
+  @IBAction func showAlertWithAction(_ sender: Any) {
+    let alert = UIAlertController(title: "Current Color", message: colorView.backgroundColor?.rgbHexString, preferredStyle: .alert)
+    
+    let okAction = UIAlertAction(title: "Ok", style: .default) {
+      [weak self] (action) in
+      print(self?.colorView.backgroundColor?.rgbHexString ?? "")
+    }
+    alert.addAction(okAction)
+    preset(alert, animated: true, completion: nil)
+  }
+  
+}
+
+class RxCocoaAlertViewController: UIViewController {
+
+  let bag = DisposeBag()
+  @IBOutlet weak var colorView: UIView!
+  @IBOutlet weak var oneActionAlertButton: UIButton!
+  @IBOutlet weak var twoActionsAlertButton: UIButton!
+  @IBOutlet weak var actionSheetButton: UIButton!
+
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    oneActionAlertButton.rx.tap
+      .flatMap { [unowned self] in self.info(title:"Current Color", message: self.colorView.backgroundColor?.rgbHexString) }
+      .subscribe(onNext: { [unowned self] actionType in
+        switch actionType {
+        case .ok:
+          print(self.colorView.backgroundColor?.rgbHexString ?? "")
+        default:
+          break
+        }
+      })
+      .disposed(by: bag)
+      
+    twoActionAlertButton.rx.tap
+      .flatMap { [unowned self] in self.alert(title: "Reset Color", message: "Reset to black color?") }
+      .subscribe(onNext: { [unowned self] actionType in
+        switch actionType {
+        case .ok:
+          self.colorView.backgroundColor = UIColor.black
+        default:
+          break
+        }
+      })
+      .disposed(by: bag)
+      
+    actionSheetButton.rx.tap
+      .flatMap { [unowned self] in
+        self.colorActionSheet(colors: MaterialBlue.allColors, title: "Change Color", message: "Choose one")
+      }
+      .subscribe(onNext: { [unowned self] color in
+        self.colorView.backgroundColor = color
+      })
+      .disposed(by: bag)
+  }
+}
+
+enum ActionType {
+  case ok
+  case cancel
+}
+
+extension UIViewController {
+  func info(title: String, message: String? = nil) -> Observable<ActionType> {
+    return Observable.create { [weak self] observer in
+      let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+      let okAction = UIAlertAction(title: "Ok", style: .default) { _ in
+        observer.onNext(.ok)
+        observer.onCompleted()
+      }
+      alert.addAction(okAction)
+      self?.present(alert, animated: true, completion: nil)
+      return Disposables.create {
+        alert.dismiss(animated: true, completion: nil)
+      }
+    }
+  }
+  
+  func alert(title: String, message: String? = nil) -> Observable<ActionType> {
+    return Observable.create { [weak self] observer in
+      let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+      let okAction = UIAlertAction(title: "Ok", style: .default) { _ in
+        observer.onNext(ok.)
+        observer.onCompleted()
+      }
+      alert.addAction(okAction)
+  
+      let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in
+        observer.onNext(.cancel)
+        observer.onCompleted()
+      }
+      alert.addAction(cancelAction)
+      
+      self?.present(alert, animated: true, completion: nil)
+      
+      return Disposables.create {
+        alert.dismiss(animated: true, completion: nil)
+      }
+    }
+  }
+  
+  func colorActionSheet(colors: [UIColor], title: String, message: String? = nil) -> Observable<UIColor> {
+    return Observable.create { [weak self] observer in
+      let actionSheet = UIAlertController(title: title, message: message, preferredStyle: .actionSheet)
+      
+      for color in colors {
+        let colorAction = UIAlertAction(title: color.rgbHexString, style: .default) { _ in
+          observer.onNext(color)
+          observer.onCompleted()
+        }
+        actionSheet.addAction(colorAction)
+      }
+      
+      let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in
+        observer.onCompleted()
+      }
+      actionSheet.addAction(cancelAction)
+      self?.present(actionSheet, animated: true, completion: nil)
+      
+      return Disposables.create {
+        actionSheet.dismiss(animated: true, completion: nil)
+      }
+      
+    }
+  }
+}
+</code>
+</pre>
+
+#### 67/98 Notification Center in RxCocoa
+- 예시코드
+<pre>
+<code>
+class RxCocoaNotificationCenterViewController {
+  @IBOutlet weak var textView: UITextView!
+  @IBOutlet weak var toggleButton: UIBarButtonItem!
+  
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    
+    toggleButton.rx.tap
+      .subscribe(onNext: { [unowned self] in
+        if self.textView.isFirstReponder {
+          self.textView.resignFirstResponder()
+        } else {
+          self.textView.becomeFirstResponder()
+      })
+      .disposed(by: bag)
+      
+      let willShowObservable = NotificationCenter.default.rx.notification(UIResponder.keyboardWillShowNotification)
+        .map { ($0.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue.height ?? 0 }
+        
+      let willHideObservable = NotificationCenter.default.rx.notification(UIResponder.keyboardWillHideNotification)
+        .map { noti -> CGFloat in 0 }
+        
+      Observable.merge(willShowObservable, willHideObservable)
+        .map { [unowned self] height -> UIEdgeInsets in
+          var inset = self.textView.contentInset
+          inset.bottom = height
+          return inset
+        }
+        .subscribe(onNext: { [weak self] inset in
+          UIView.animate(withDuration: 0.3) {
+            self?.textView.contentInset = inset
+          }
+        })
+        .disposed(by: bag)
+        
+  }
+  
+  override func viewWillDisappear(_ animated: Bool) {
+    super.viewWillDisappear(animated)
+    
+    if textView.isFirstResponder {
+      textView.resignFirstResponder()
+    }
+  }
+}
+</code>
+</pre>
+
+#### 68/98 Notification Center in RxCocoa
+- 예시코드
+<pre>
+<code>
+class RxCocoaGestureViewController: UIViewController {
+  let bag = DisposeBag()
+  
+  @IBOutlet weak var targetView: UIView!
+  @IBOutlet var panGesture: UIPanGestureRecongnizer!
+  
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    
+    targetView.center = view.center
+    
+    panGesture.rx.event
+      .subscribe(onNext: { [unowned self] gesture in
+        guard let target = gesture.view else { return }
+        let translation = gesture.translation(in: self.view)
+        
+        target.center.x += translation.x
+        target.center.y += translation.y
+        
+        gesture.setTranslation(.zero, in: self.view)
+      })
+      .disposed(by: bag)
+  }
+}
+</code>
+</pre>
+
+
+### Custom Extension
+#### 69/98 Custom Binder
+- 
