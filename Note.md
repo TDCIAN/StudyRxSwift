@@ -2788,30 +2788,30 @@ valueField.rx.text
  
 
 #### 62/98 Control Event, Control Property
-- Cocoatouch framework가 제공하는 뷰에는 다양한 속성이 선언되어 있다
+- Cocoatouch framework가 제공하는 View에는 다양한 속성이 선언되어 있다
 - rxcocoa는 익스텐션으로 뷰를 확장하고 동일한 이름을 가진 속성들을 추가한다
 - 이런 속성들은 대부분 ControlProperty 형식으로 선언되어 있다
 - ControlProperty는 제네릭 구조체로 선언되어 있고, ControlProtocolType 프로토콜을 채용하고 있다
-- 컨트롤프로터티타입프로토콜은 옵저버블 타입과 옵저버 타입 프로토콜을 상속하고 있다
-- 컨트롤프로퍼티는 특별한 옵저버블이면서, 동시에 특별한 옵저버이다
-- 컨트롤프로퍼티가 읽기 전용 속성을 확장했다면 옵저버블의 역할만 수행하고, 읽기 쓰기가 모두 가능하다면 옵저버의 역할도 함께 수행한다
-- 컨트롤 프로퍼티의 특징
-  - 유아이 바인딩에 사용되므로 에러 이벤트를 전달 하지도, 받지도 않는다
-  - 컴플리티드이벤트는 컨트롤이 제거되기 직전에 전달된다
-  - 모든 이벤트는 메인스케줄러에서 전달된다
-  - 컨트롤프로퍼티는 시퀀스를 공유한다
-  - 일반 옵저버블에서 셰어 연산자를 호출하고, 리플레이 파라미터로 1을 전달한 것과 동일한 방식으로 동작한다
+- ControlPropertyType 프로토콜은 Observable Type과 Observer Type 프로토콜을 상속하고 있다
+- ControlProperty는 특별한 Observable이면서, 동시에 특별한 Observer이다
+- ControlProperty가 읽기 전용 속성을 확장했다면 Observable의 역할만 수행하고, 읽기 쓰기가 모두 가능하다면 Observer의 역할도 함께 수행한다
+- ControlProperty의 특징
+  - UI binding에 사용되므로 error 이벤트를 전달 하지도, 받지도 않는다
+  - completed 이벤트는 컨트롤이 제거되기 직전에 전달된다
+  - 모든 이벤트는 Main Scheduler에서 전달된다
+  - ControlProperty는 sequence를 공유한다
+  - 일반 Observable에서 share 연산자를 호출하고, replay 파라미터로 1을 전달한 것과 동일한 방식으로 동작한다
   - 새로운 구독자가 추가되면 가장 최근에 저장된 속성값이 바로 전달된다
-  - 유아이 컨트롤을 상속한 컨트롤들은 다양한 이벤트를 전달한다
-  - 알엑스코코아가 확장한 익스텐션에는 이벤트를 옵저버블로 래핑한 속성이 추가되어 있다
-  - 예를 들어 유아이버튼의 확장을 보면 탭이라는 속성이 선언되어 있다. 이 속성은 컨트롤이벤트 형식으로 선언되어 있다
-  - 컨트롤이벤트는 컨트롤이벤트타입프로토콜을 채용한 제네릭 타입이다
-  - 컨트롤이벤트타입 프로토콜은 옵저버블 타입 프로토콜을 상속하고 있다
-  - 컨트롤프로퍼티와 달리 옵저버블의 역할은 수행하지만, 옵저버의 역할은 수행하지 못한다
-  - 컨트롤 이벤트는 컨트롤 프로퍼티와 다수의 공통점을 가지고 있다
-  - 에러 이벤트를 전달하지 않고 컴플리티드 이벤트는 컨트롤이 해제되기 직전에 전달된다
-  - 메인 스케줄러에서 이벤트를 전달하는 것도 동일하다
-  - 하지만 컨트롤 프로퍼티와 달리 가장 최근 이벤트를 리플레이 하지 않는다
+  - UI 컨트롤을 상속한 컨트롤들은 다양한 이벤트를 전달한다
+  - RxCocoa가 확장한 익스텐션에는 이벤트를 Observable로 wrapping한 속성이 추가되어 있다
+  - 예를 들어 UIButton의 확장을 보면 tap이라는 속성이 선언되어 있다. 이 속성은 ControlEvent 형식으로 선언되어 있다
+  - ControlEvent는 ControlEventType 프로토콜을 채용한 제네릭 타입이다
+  - ControlEventType 프로토콜은 ObservableType 프로토콜을 상속하고 있다
+  - ControlProperty와 달리 Observable의 역할은 수행하지만, Observer의 역할은 수행하지 못한다
+  - 컨트롤 이벤트는 ControlProperty와 다수의 공통점을 가지고 있다
+  - error 이벤트를 전달하지 않고 completed 이벤트는 컨트롤이 해제되기 직전에 전달된다
+  - Main Scheduler에서 이벤트를 전달하는 것도 동일하다
+  - 하지만 ControlProperty와 달리 가장 최근 이벤트를 replay 하지 않는다
   - 그래서 새로운 구독자는 구독 이후에 전달된 이벤트만 전달 받는다
 
 - 예시 코드
@@ -2892,3 +2892,65 @@ func updateWithRxCocoa() {
 
 
 #### 63/98 Driver
+- RxCocoa가 제공하는 traits 중에서 핵심은 driver이다
+- driver는 data를 UI에 binding하는 직관적이고 효율적인 방법을 제공한다
+- driver는 특별한 Observable이고, UI 처리에 특화된 몇 가지 특징을 가지고 있다
+  - error 메시지를 전달하지 않으므로 오류로 인해 UI 업데이트가 중단되는 일이 없다
+  - Scheduler를 강제로 변환하는 일이 없다면 항상 Main Scheduler에서 이벤트가 전달된다
+  - driver는 side effect를 공유한다. 일반 Observable에서 share 연산자를 호출하고, 화면에 있는 파라미터를 전달한 것과 동일하게 동작한다
+  - 모든 구독자가 sequence를 공유하고 새로운 구독이 시작되면 가장 최근에 전달된 이벤트가 즉시 전달된다
+  - driver는 asDriver 메소드를 활용해서 사용한다. 이 때 기존에 존재하는 share() 메소드는 지워야 한다.
+
+- 사용 예시
+<pre>
+<code>
+// driver 사용 전
+let result = inputField.rx.text
+  .flatMapLatest {
+    validateText($0)
+      .observeOn(MainScheduler.instance)
+      .catchErrorJustReturn(false)
+  }
+  .share()
+  
+result
+  .map { $0 ? "Ok" : "Error" }
+  .bind(to: resultLabel.rx.text)
+  .disposed(by: bag)
+  
+result
+  .map { $0 ? UIColor.blue : UIColor.red }
+  .bind(to: resultLabel.rx.backgrounColor)
+  .disposed(by: bag)
+  
+result
+  .bind(to: sendButton.rx.isEnabled)
+  .dispoed(by: bag)
+
+// driver를 사용할 때
+let result = inputField.rx.text.asDriver() // driver는 sequence를 공유하기 때문에 share 연산자는 필요 없다
+  .flatMapLatest {
+    validateText($0)
+    .asDriver(onErrorJustReturn: false)
+  }
+  
+result
+  .map { $0 ? "Ok" : "Error" }
+  .drive(resultLabel.rx.text)
+  .disposed(by: bag)
+
+result
+  .map { $0 ? UIColor.blue : UIColor.red }
+  .drive(resultLabel.rx.backgrounColor)
+  .disposed(by: bag)
+  
+result
+  .drive(sendButton.rx.isEnabled)
+  .dispoed(by: bag)
+
+</code>
+</pre>
+
+2020/03/01 여기까지
+### RxCocoa Common Patterns
+#### 64/98 Table View in RxCocoa
