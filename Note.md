@@ -2726,34 +2726,169 @@ END #3
 
 
 #### 60/98 Binding
-- 데이터를 유아이에 표시하는 의미로 바인딩이 사용된다
-- 바인딩에는 데이터 생산자와 데이터 소비자가 있다
-- 데이터 생산자는 옵저버블이다
-- 코드 레벨로 설명하면 옵저버블 타입을 채용한 모든 형식이 생산자가 된다
-- 데이터 소비자는 레이블이나 이미지뷰 같은 유아이 컴포넌트이다
-- 생산자가 생산한 데이터는 소비자에게 전달되고, 소비자는 적절한 방식으로 데이터를 소비한다
-- 예를 들어 레이블은 전달된 텍스트를 화면에 표시한다
-- 반대로 소비자가 생산자에게 데이터나 이벤트를 전달하는 경우는 없다
-- 바인더는 유아이바인딩에 사용되는 특별한 옵저버이다
-- 데이터 소비자의 역할을 수행한다
-- 옵저버이기 때문에 바인더로 새로운 값을 전달할 수 있지만, 옵저버블이 아니기 때문에 구독자를 추가하는 것은 불가능하다
-- 바인더는 에러 이벤트를 받지 않는다
-- 만약 에러 이벤트를 전달하면 실행 모드에 따라 크래시가 발생하거나 에러 메시지가 출력된다
-- 옵저버에서 에러 이벤트가 전달되면 옵저버블 시퀀스가 종료된다
-- 넥스트 이벤트가 전달되지 않으면 바인딩 된 유아이가 더 이상 업데이트 되지 않는다
-- 이런 문제를 막기 위해서 에러 이벤트를 받지 않는 것이다
-- 바인딩이 성공하면 유아이가 업데이트 된다
-- 유아이 코드는 메인 스레드에서 실행해야 한다는 것이 기본중의 기본이다
-- 바인더는 바인딩이 메인 스레드에서 실행되는 것을 보장한다
+- data를 UI에 표시하는 의미로 binding이 사용된다
+- binding에는 data 생산자와 data 소비자가 있다
+- data 생산자는 Observable이다
+- 코드 레벨로 설명하면 ObservableType을 채용한 모든 형식이 생산자가 된다
+- data 소비자는 label이나 imageView 같은 UI Component이다
+- 생산자가 생산한 data는 소비자에게 전달되고, 소비자는 적절한 방식으로 data를 소비한다
+- 예를 들어 label은 전달된 텍스트를 화면에 표시한다
+- 반대로 소비자가 생산자에게 data나 이벤트를 전달하는 경우는 없다
+- binder는 UI binding에 사용되는 특별한 Observer이다
+- data 소비자의 역할을 수행한다
+- Observer이기 때문에 binder로 새로운 값을 전달할 수 있지만, Observable이 아니기 때문에 구독자를 추가하는 것은 불가능하다
+- binder는 error 이벤트를 받지 않는다
+- 만약 error 이벤트를 전달하면 실행 모드에 따라 크래시가 발생하거나 error 메시지가 출력된다
+- Observer에서 error 이벤트가 전달되면 Observable sequence가 종료된다
+- Next 이벤트가 전달되지 않으면 binding 된 UI가 더 이상 업데이트 되지 않는다
+- 이런 문제를 막기 위해서 error 이벤트를 받지 않는 것이다
+- binding이 성공하면 UI가 업데이트 된다
+- UI 코드는 메인 스레드에서 실행해야 한다는 것이 기본 중의 기본이다
+- binder는 binding이 메인 스레드에서 실행되는 것을 보장한다
 - UITextField + Rx 
   - text 속성이 ControlProperty<String?> 타입으로 선언되어 있다
-  - ControlProperty 타입은 데이터를 특정 유아이에 바인딩할 때 사용하는 특별한 옵저버블이다
+  - ControlProperty 타입은 data를 특정 UI에 binding할 때 사용하는 특별한 Observable이다
   - 타입 파라미터가 옵셔널 스트링으로 선언되어 있다
-  - text 속성이 변경될 때마다 넥스트 이벤트를 전달하고 여기에는 옵셔널 스트링 형식의 데이터가 저장되어 있다
-- RxSwift에서 UI를 업데이트 하기 위해 메인 스레드를 사용해야 하는 경우, GCD의 DispatchQueue.mai.async를 사용할 수도 있겠지만, RxSwift에서 제공하는 .observeOn(MainScheduler.instance)
+  - text 속성이 변경될 때마다 Next 이벤트를 전달하고 여기에는 옵셔널 스트링 형식의 data가 저장되어 있다
+- RxSwift에서 UI를 업데이트 하기 위해 메인 스레드를 사용해야 하는 경우, GCD의 DispatchQueue.main.async를 사용할 수도 있겠지만, RxSwift에서 제공하는 .observeOn(MainScheduler.instance)를 사용한다
+- Binder 속성을 활용하면 DispatchQueue.main.async나 .observeOn(MainScheduler.instance)를 사용할 필요 없다. .bind(to: ObserverType)메소드를 사용하면 된다
+- 예시 코드
+<pre>
+<code>
+
+// valueField.rx.text
+//  .observeOn(MainScheduler.instance) // GCD의 DispatchQueue.main.async를 사용하는 대신 RxSwift에서 제공하는 .observeOn(MainScheduler.instance)를 사용했다
+//  .subscribe(onNext: { [weak self] str in
+//    self?.valueLabel.text = str
+//  })
+//  .disposed(by: disposeBag)
+
+valueField.rx.text
+  .bind(to: value: valueLabel.rx.text) // bind 메소드를 사용하면 스레드에 신경 쓸 필요 없다
+  .disposed(by: disposeBag)
+</code>
+</pre>
+
 
 #### 61/98 RxCocoa Traits
+- traits는 UI에 특화된 Observable이다.
+- Observable이기 때문에 UI binding에서 data 생산자 역할을 수행한다
+- binder와 반대라고 생각하면 쉽다
+- RxCocoa는 네 가지 traits를 제공한다(ControlProperty, ControlEvent, Driver, Signal)
+- traits는 모든 작업이 Main Scheduler(Main Thread)에서 실행된다
+- 따라서 UI 업데이트 코드를 작성할 때 Scheduler를 직접 작성할 필요가 없다
+- Observable sequence가 error 이벤트로 인해 종료되면 UI는 더 이상 업데이트되지않는다
+- 하지만 traits는 error 이벤트를 전달하지 않는다. 그래서 이런 문제가 발생하는 경우는 없다
+- UI가 항상 올바른 스레드에서 업데이트 되는 것을 보장한다
+- Observable을 구독하면 기본적으로 새로운 sequence가 시작된다
+- traits 역시 Observable이지만, 새로운 sequence가 시작되지는 않는다
+- traits를 구독하는 모든 구독자는 동일한 sequence를 공유한다
+- 일반 Observable에서 share 연산자를 사용한 것과 동일한 방식으로 동작한다
+- UI관련 코드를 더 깔끔하게 쓰고 싶거나, binding이 잘못된 스레드에서 실행되는 것이 싫다면 subscribe 메소드가 아닌 traits를 써라
+ 
 
 #### 62/98 Control Event, Control Property
+- Cocoatouch framework가 제공하는 뷰에는 다양한 속성이 선언되어 있다
+- rxcocoa는 익스텐션으로 뷰를 확장하고 동일한 이름을 가진 속성들을 추가한다
+- 이런 속성들은 대부분 ControlProperty 형식으로 선언되어 있다
+- ControlProperty는 제네릭 구조체로 선언되어 있고, ControlProtocolType 프로토콜을 채용하고 있다
+- 컨트롤프로터티타입프로토콜은 옵저버블 타입과 옵저버 타입 프로토콜을 상속하고 있다
+- 컨트롤프로퍼티는 특별한 옵저버블이면서, 동시에 특별한 옵저버이다
+- 컨트롤프로퍼티가 읽기 전용 속성을 확장했다면 옵저버블의 역할만 수행하고, 읽기 쓰기가 모두 가능하다면 옵저버의 역할도 함께 수행한다
+- 컨트롤 프로퍼티의 특징
+  - 유아이 바인딩에 사용되므로 에러 이벤트를 전달 하지도, 받지도 않는다
+  - 컴플리티드이벤트는 컨트롤이 제거되기 직전에 전달된다
+  - 모든 이벤트는 메인스케줄러에서 전달된다
+  - 컨트롤프로퍼티는 시퀀스를 공유한다
+  - 일반 옵저버블에서 셰어 연산자를 호출하고, 리플레이 파라미터로 1을 전달한 것과 동일한 방식으로 동작한다
+  - 새로운 구독자가 추가되면 가장 최근에 저장된 속성값이 바로 전달된다
+  - 유아이 컨트롤을 상속한 컨트롤들은 다양한 이벤트를 전달한다
+  - 알엑스코코아가 확장한 익스텐션에는 이벤트를 옵저버블로 래핑한 속성이 추가되어 있다
+  - 예를 들어 유아이버튼의 확장을 보면 탭이라는 속성이 선언되어 있다. 이 속성은 컨트롤이벤트 형식으로 선언되어 있다
+  - 컨트롤이벤트는 컨트롤이벤트타입프로토콜을 채용한 제네릭 타입이다
+  - 컨트롤이벤트타입 프로토콜은 옵저버블 타입 프로토콜을 상속하고 있다
+  - 컨트롤프로퍼티와 달리 옵저버블의 역할은 수행하지만, 옵저버의 역할은 수행하지 못한다
+  - 컨트롤 이벤트는 컨트롤 프로퍼티와 다수의 공통점을 가지고 있다
+  - 에러 이벤트를 전달하지 않고 컴플리티드 이벤트는 컨트롤이 해제되기 직전에 전달된다
+  - 메인 스케줄러에서 이벤트를 전달하는 것도 동일하다
+  - 하지만 컨트롤 프로퍼티와 달리 가장 최근 이벤트를 리플레이 하지 않는다
+  - 그래서 새로운 구독자는 구독 이후에 전달된 이벤트만 전달 받는다
+
+- 예시 코드
+<pre>
+<code>
+@IBOutlet weak var redComponentLabel: UILabel!
+@IBOutlet weak var greenComponentLabel: UILabel!
+@IBOutlet weak var blueComponentLabel: UILabel!
+
+// Cocoatouch framework로 구현한 내용
+@IBAction func sliderChanged(_ sender: Any) {
+  let redComponent = CGFloat(redSlider.value) / 255
+  let greenComponent = CGFloat(greenSlider.value) / 255
+  let blueComponent = CGFloat(blueSlider.value) / 255
+  
+  let color = UIColor(red: redComponent, green: greenComponent, blue: blueComponent, alpha: 1.0)
+  colorView.backgroundColor = color
+  
+  updateComponentLabel()
+}
+
+@IBAction func resetColor(_ sender: Any) {
+  colorView.backgroundColor = UIColor.black
+  
+  redSlider.value = 0
+  greenSlider.value = redSlider.value
+  blueSlider.value = redSlider.value
+  
+  updateComponentLabel()
+}
+
+private func updateComponentLabel() {
+  redComponentLabel.text = "\(Int(redSlider.value))"
+  greenComponentLabel.text = "\(Int(greenSlider.value))"
+  blueComponentLabel.text = "\(Int(blueSlider.value))"
+}
+
+// RxCocoa를 활용한 뷰 업데이트
+
+func updateWithRxCocoa() {
+  redSlider.rx.value
+    .map { "\(Int($0))" }
+    .bind(to: redComponentLabel.rx.text)
+    .disposed(by: bag)
+    
+  greenSlider.rx.value
+    .map { "\(Int($0))" }
+    .bind(to: greenComponentLabel.rx.text)
+    .disposed(by: bag)
+    
+  blueSlider.rx.value
+    .map { "\(Int($0))" }
+    .bind(to: blueComponentLabel.rx.text)
+    .disposed(by: bag)
+    
+  // 색상 업데이트 하는 코드
+  Observable.combineLatest([redSlider.rx.value, greenSlider.rx.value, blueSlider.rx.value])
+    .map { UIColor(red: CGFloat($0[0]) / 255, green: CGFloat($0[1]) / 255, blue: CGFloat($0[2]) / 255, alpha: 1.0) }
+    .bind(to: colorView.rx.backgroundColor)
+    .disposed(by: bag)
+    
+  // 리셋하는 코드
+  resetButton.rx.tap
+    .subscribe(onNext: { [weak self] in
+      self?.colorView.backgroundColor = UIColor.black
+      
+      self?.redSlider.value = 0
+      self?.greenSlider.value = 0
+      self?.blueSlider.value = 0
+      
+      self?.updateComponentLabel()
+    })
+    .disposed(by: bag)
+    
+}
+</code>
+</pre>
+
 
 #### 63/98 Driver
