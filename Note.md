@@ -3362,9 +3362,290 @@ extension Reactive where Base: UILabel {
 </pre>
 
 #### 70/98 Custom ControlProperty
+- Binding 대상이 되는 경우에는 Binder로 구현하면 된다.
+- 이번에는 슬라이더를 움직일 때마다 UIColor를 방출해야 한다
+- Binder는 Observable이 아니기 때문에 이런 것은 불가능 하다
+- 그래서 ControlProperty로 구현해야 한다
+- 쓰기만 가능한 속성은 binder로 구현하고, 읽기와 쓰기가 모두 가능해야 한다면 ControlProperty로 구현해야 한다 
+
+<pre>
+<code>
+class CustomControlPropertyViewController: UIViewController {
+
+  let bag = DisposeBag()
+  
+  @IBOutlet weak var resetButton: UIBarButtonItem!
+  
+  @IBOutlet weak var whiteSlider: UISlider!
+  
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    
+//    whiteSlider.rx.value
+//      .map { UIColor(white: CGFloat($0), alpha: 1.0) }
+//      .bind(to: view.rx.backgroundColor)
+//      .disposed(by: bag)
+//      
+//    resetButton.rx.tap
+//      .map { Float(0.5) }
+//      .bind(to: whiteSlider.rx.value)
+//      .disposed(by: bag)
+//      
+//    resetButton.rx.tap
+//      .map { UIColor(white: 0.5, alpha: 1.0) }
+//      .bind(to: view.rx.backgroundColor)
+//      .disposed(by: bag)
+
+    whiteSlider.rx.color
+      .bind(to: view.rx.backgroundColor)
+      .disposed(by: bag)
+      
+    resetButton.rx.tap
+      .map { _ in UIColor(white: 0.5, alpha: 1.0) }
+      .bind(to: whiteSlider.rx.color.asObserver(), view.rx.backgroundColor.asObserver())
+      .disposed(by: bag)
+  }
+}
+extension Reactive where Base: UISlider {
+  var color: ControlProperty<UIColor?> {
+    return base.rx.controlProperty(editingEvents: .valueChanged, getter: {
+      (slider) in
+      UIColor(white: CGFloat(slider.value), alpha: 1.0)
+    }, setter: { slider, color in
+      var white = CGFloat(1)
+      color?.getWhite(&white, alpha: nil)
+      slider.value = Float(white)
+    })
+  }
+}
+</code>
+</pre>
+
 
 #### 71/98 Custom ControlEvent
+- delegate 패턴을 RxSwift 방식으로 확장하는 방법은 크게 두 가지이다.
+- 지금처럼 UIControl을 상속하고 있다면 ControlEvent로 구현한다
+- 반면 LocationManagerDelegate나 WebViewDelegate처럼 UIControl과 관련이 없는 경우에는 DelegateProxy를 구현한다
+<pre>
+<code>
+class CustomControlEventViewController: UIViewController {
+  let bag = DisposeBag()
+  @IBOutlet weak var inputField: UITextField!
+  @IBOutlet weak var countLabel: UILabel!
+  @IBOutlet weak var doneButton: UIButton!
+  
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    
+    inputField.borderStyle = .none
+    inputField.layer.borderWidth = 3
+    inputField.layer.borderColor = UIColor.gray.cgColor
+    
+    let paddingView = UIView(frame: CGRect(x: 0, y: 0, width: 5, height: inputField.frame.height))
+    inputField.leftView = paddingView
+    inputField.leftViewMode = .always
+    
+    inputField.rx.text
+      .map { $0?.count ?? 0 }
+      .map { "\($0)" }
+      .bind(to: countLabel.rx.text)
+      .disposed(by: bag)
+      
+    doneButton.rx.tap
+      .subscribe(onNext: { [weak self] _ in
+        self?.inputField.resignFirstResponder()
+      })
+      .disposed(by: bag)
+      
+//    inputField.delegate = self  
+
+    inputField.rx.editingDidBegin
+      .map { UIColor.red }
+      .bind(to: inputField.rx.borderColor)
+      .disposed(by: bag)
+      
+    inputField.rx.editingDidEnd
+      .map { UIColor.gray }
+      .bind(to: inputField.rx.borderColor)
+      .disposed(by: bag)
+  }
+}
+
+extension Reactive where Base: UITextField {
+  var borderColor: Binder<UIColor?> {
+    return Binder(self.base) { textField, color in
+      textField.layer.borderColor = color?.cgColor
+    }
+  }
+
+  var editingDidBegin: ControlEvent<Void> {
+    return controlEvent(.editingDidBegin)
+  }
+  
+  var editingDidEnd: ControlEvent<Void> {
+    return controlEvent(.editingDidEnd)
+  }
+}
+
+//extension CustomControlEventViewController: UITextFieldDelegate {
+//  func textFieldDidBeginEditing(_ textField: UITextField) {
+//    textField.layer.borderColor = UIColor.red.cgColor
+//  }
+//  
+//  func textFieldDidEndEditing(_ textField: UITextField) {
+//    textField.layer.borderColor = UIColor.gray.cgColor
+//  }
+
+
+}
+</code>
+</pre>
+
 
 #### 72/98 Delegate Proxy
+- 애플이 제공하는 기본 프레임워크는 다양한 부분에서 delegate 패턴을 활용하고 있다
+- delegate 패턴은 그동안 다양한 문제를 해결해주었고, 우리에게 익숙하다는 장점을 가지고 있지만, RxSwift와는 어울리지 않는다
+- 물론 RxSwift와 함께 사용하는 데는 전혀 문제가 없다
+- DelegateProxy를 사용할지, 아니면 이전처럼 delegate 패턴을 그대로 사용할지는 선택에 달려 있다
+- Binder, ControlProperty, ControlEvent를 활용하면 많은 부분을 RxSwift 방식으로 확장할 수 있다
+- 하지만 모든 부분을 확장할 수 있는 것은 아니다
+- 예를 들어 위치 기반 코드를 구현한다면 CLLocationManager를 사용하는데, CLLocationManagerDelegate를 구현하고 위치 정보가 전달되는 시점에 필요한 코드를 구현하게 된다
+- 앞에서 공부한 세 가지 방식으로는 이를 구현할 수 없고, 이럴 때는 DelegateProxy를 사용해야 한다
+- DelegateProxy는 이름대로 delegate를 대신 처리하는 객체이다
+- 특정 delegate가 호출되는 시점에 구독자로 Next 이벤트를 전달해준다
+- delegate 메소드를 호출하는 객체와 구독자 사이에 위치한다
+- CLLocationManagerDelegate를 확장한 proxy는 LocationManager와 구독자 사이에 위치한다
+- DelegateProxy는 앞에서 공부한 세 가지에 비해서 상대적으로 구현하기 어렵다
+- 하지만 구현 패턴에 익숙해지면 거의 모든 부분을 RxSwift 방식으로 확장할 수 있게 된다
+- 처음에는 조금 어려울 수 있지만, 여러번 반복하면서 확실히 익혀두면 좋다
+- 그런 다음 delegate 패턴으로 구현된 코드에 적용해보면 공부한 시간이 전혀 아깝지 않을 것이다
+
+- DelegateProxyType은 class protocol로 선언되어 있고, 여섯 개의 필수 멤버를 가지고 있다
+- 이 중에서 첫 번째 메소드(registerKnownImplementations())를 제외한 나머지는 protocol extension을 통해서 기본 구현을 제공한다
+- 그러므로 특별한 이유가 없다면 첫 번째 메소드만 구현하는 것으로 충분하다
+- HasDelegate Protocol
+  - HasDelegate Protocol을 채용한 경우에 기본 구현을 제공하고 있다
+- HasDataSource Protocol
+- HasPrefetchDataSource Protocol
+- DelegateProxy라고 해서 Delegate만 처리할 수 있는 것은 아니다. Data Source 역시 동일한 패턴으로 확장할 수 있다
 
 
+<pre>
+<code>
+class DelegateProxyViewController: UIViewController {
+
+  let bag = DisposeBag()
+  
+  @IBOutlet weak var mapView: MKMapView!
+  
+  let locationManager = CLLocationManager()
+  
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    
+    locationManager.requestWhenInUserAuthorization()
+    locationManager.startUpdatingLocation()
+    
+    locationManager.rx.disUpdateLocations
+      .subscribe(onNext: { locations in
+        print(locations)
+      })
+      .disposed(by: bag)
+      
+    locationManager.rx.didUpdateLocations
+      .map { $0[0] }
+      .bind(to: mapView.rx.center)
+      .disposed(by: bag)
+  }
+}
+
+extension Reactive where Base: MKMapView {
+  public var center: Binder<CLLocation> {
+    return Binder(self.base) { mapView, location in
+      let region = MKCoordinateRegion(center: location.coordinate, latitudinalMeters: 10000, longitudinalMeters: 10000)
+      self.base.setRegion(region, animated: true)
+    }
+  }
+}
+  
+extension CLLocationManager: HasDelegate {
+  public typealias Delegate = CLLocationManagerDelegate
+}
+
+class RxCLLocationManagerDelegateProxy: DelegateProxy<CLLocationManager, CLLocationManagerDelegate>, DelegateProxyType, CLLocationManagerDelegate {
+  weak private(set) var locationManager: CLLocationManager?
+  
+  init(locationManager: CLLocationManager) {
+    self.locationManager = locationManager
+    super.init(parentObject: locationManager, delegateProxy: RxCLLocationManagerDelegateProxy.self)
+  }
+  
+  static func registerKnownImplementations() {
+    self.register {
+      RxCLLocationManagerDelegateProxy(locationManager: $0)
+    }
+  }
+}
+
+extension Reactive where Base: CLLocationManager {
+  var delegate: DelegateProxy<CLLocationManager, CLLocationManagerDelegate> {
+    return RxCLLocationManagerDelegateProxy.proxy(for: base)
+  }
+  
+  var didUpdateLocations: Observable<[CLLocation]> {
+    return delegate.methodInvoked(#selector(CLLocationManagerDelegate.locationManager(_ : didUpdateLocations:)))
+    .map { parameters in
+      return parameters[1] as! [CLLocation]
+    }
+  }
+}
+</code>
+</pre>
+
+### RxSwift Community Projecys
+#### 72/98 NSObject+Rx
+- disposeBag 속성을 자동으로 추가해주는 NSObject-Rx 라이브러리
+- resource 정리를 위해서 disposeBag을 생성하게 되는데 클래스마다 이런 작업을 반복해야 하기 때문에 귀찮다
+- 이 라이브러리를 사용하면 NSObject를 상속한 모든 클래스에 디스포즈백 속성이 자동으로 추가된다
+
+<pre>
+<code>
+import UIKit
+import RxSwift
+import RxCocoa
+import NSObject_Rx
+
+class NSObjectRxViewController: UIViewController {
+  // let bag = DisposeBag()
+  let button = UIButton(type: .system)
+  let label = UILabel()
+  
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    
+    Observable.just("Hello")
+      .subscribe { print($0) }
+      //.disposed(by: bag)
+      .disposed(by: rx.disposeBag)
+      
+    button.rx.tap
+      .map { "Hello" }
+      .bind(to: label.rx.text)
+      //.disposed(by: bag)
+      .disposed(by: rx.disposeBag)
+      
+  }
+}
+
+class MyClass: HasDisposeBag {
+  // let bag = DisposeBag()
+  
+  func doSomething() {
+    Observable.just("Hello")
+      .subscribe { print($0) }
+      //.disposed(by: bag)
+      .disposed(by: disposeBag) // rx 네임스페이스가 필요 없이 바로 disposeBag 사용 가능
+  }
+}
+</code>
+</pre>
