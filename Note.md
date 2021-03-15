@@ -1,6 +1,6 @@
 # StudyRxSwift
 Study RxSwift with KxCoding
-[Link: Mastering RxSwift of KxCoding](https://kxcoding.com/course/mastering-rxswift)
+<br>[Mastering RxSwift of KxCoding 바로가기](https://kxcoding.com/course/mastering-rxswift)
 
 ### Hello, RxSwift
 #### 1/98 Hello, RxSwift
